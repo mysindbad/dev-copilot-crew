@@ -77,11 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "My AI Dev Team" },
+      {
+        name: "description",
+        content:
+          "A GitHub-connected multi-agent AI software development platform you control.",
+      },
+      { property: "og:title", content: "My AI Dev Team" },
+      {
+        property: "og:description",
+        content:
+          "A GitHub-connected multi-agent AI software development platform you control.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
