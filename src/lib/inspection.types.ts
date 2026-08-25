@@ -118,22 +118,25 @@ export interface RepositoryAudit {
   events: InspectionEvent[];
 }
 
+export type InspectionErrorKind =
+  | "not_found"
+  | "unauthorized"
+  | "forbidden"
+  | "invalid_branch"
+  | "rate_limit"
+  | "network"
+  | "empty_repository"
+  | "no_token"
+  | "invalid_url"
+  | "unknown";
+
 export interface InspectionResult {
   ok: boolean;
-  audit?: RepositoryAudit;
-  cached?: boolean;
-  error?: string;
-  errorKind?:
-    | "not_found"
-    | "unauthorized"
-    | "forbidden"
-    | "invalid_branch"
-    | "rate_limit"
-    | "network"
-    | "empty_repository"
-    | "no_token"
-    | "invalid_url"
-    | "unknown";
-  rateLimit?: { remaining: number; resetAt: string };
+  audit?: RepositoryAudit | undefined;
+  cached?: boolean | undefined;
+  error?: string | undefined;
+  errorKind?: InspectionErrorKind | undefined;
+  rateLimit?: { remaining: number; resetAt: string } | undefined;
   events: InspectionEvent[];
 }
+
