@@ -8,9 +8,13 @@ import {
   type ProviderStatus,
   type RepoConnectionResult,
 } from "@/lib/connection.functions";
+import type { RepositoryAudit } from "@/lib/inspection.types";
 import { ConnectRepository, type RepoConfig } from "@/components/ConnectRepository";
 import { ProviderPanel, type ProviderConfig } from "@/components/ProviderPanel";
+import { InspectionPanel } from "@/components/InspectionPanel";
+import { RepositoryAuditView } from "@/components/RepositoryAuditView";
 import { StatusPill } from "@/components/StatusPill";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
