@@ -51,15 +51,16 @@ interface GhResponse {
   rateLimit: { remaining: number; resetAt: string } | undefined;
 }
 
-async function gh(path: string, token: string): Promise<GhResponse> {
-  const res = await fetch(`https://api.github.com${path}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "my-ai-dev-team",
-    },
-  });
+async function gh(path: string, token: string | null): Promise<GhResponse> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "my-ai-dev-team",
+  };
+  // The token never leaves this request; it is not logged or returned.
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`https://api.github.com${path}`, { headers });
+
   const remaining = res.headers.get("x-ratelimit-remaining");
   const reset = res.headers.get("x-ratelimit-reset");
   return {
