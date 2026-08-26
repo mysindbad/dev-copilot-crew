@@ -62,21 +62,20 @@ function safeMessage(message: string): string {
   return message.replace(/gh[pousr]_[A-Za-z0-9]+/g, "[redacted]").slice(0, 300);
 }
 
-async function gh(path: string, token: string) {
-  return fetch(`https://api.github.com${path}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "my-ai-dev-team",
-    },
-  });
+async function gh(path: string, token: string | null) {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "my-ai-dev-team",
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(`https://api.github.com${path}`, { headers });
 }
 
 export const testRepositoryConnection = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => RepoInput.parse(input))
   .handler(async ({ data }): Promise<RepoConnectionResult> => {
-    const token = process.env["GITHUB_TOKEN"];
+    let token: string | null = process.env["GITHUB_TOKEN"] ?? null;
     const checks: Check[] = [];
 
     const parsed = parseRepoUrl(data.repoUrl);
@@ -92,30 +91,33 @@ export const testRepositoryConnection = createServerFn({ method: "POST" })
       checks.push({
         id: "token",
         label: "GitHub token present",
-        state: "fail",
-        detail: "GITHUB_TOKEN secret is not configured on the server.",
+        state: "skip",
+        detail: "No token stored — using unauthenticated public access.",
       });
-      return { ok: false, checks, error: "Missing GitHub token secret." };
+    } else {
+      // 1. Token validity
+      const userRes = await gh("/user", token);
+      if (!userRes.ok) {
+        token = null;
+        checks.push({
+          id: "token",
+          label: "GitHub token valid",
+          state: "skip",
+          detail: safeMessage(
+            `GitHub rejected the stored token (${userRes.status}). Falling back to public access; private repositories need a valid token.`,
+          ),
+        });
+      } else {
+        const user = (await userRes.json()) as { login: string };
+        checks.push({
+          id: "token",
+          label: "GitHub token valid",
+          state: "ok",
+          detail: `Authenticated as ${user.login}`,
+        });
+      }
     }
 
-    // 1. Token validity
-    const userRes = await gh("/user", token);
-    if (!userRes.ok) {
-      checks.push({
-        id: "token",
-        label: "GitHub token valid",
-        state: "fail",
-        detail: safeMessage(`GitHub returned ${userRes.status}`),
-      });
-      return { ok: false, checks, error: "GitHub token rejected." };
-    }
-    const user = (await userRes.json()) as { login: string };
-    checks.push({
-      id: "token",
-      label: "GitHub token valid",
-      state: "ok",
-      detail: `Authenticated as ${user.login}`,
-    });
 
     // 2. Repository access
     const repoRes = await gh(`/repos/${parsed.owner}/${parsed.repo}`, token);
