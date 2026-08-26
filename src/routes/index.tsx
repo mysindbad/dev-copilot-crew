@@ -8,9 +8,13 @@ import {
   type ProviderStatus,
   type RepoConnectionResult,
 } from "@/lib/connection.functions";
+import type { RepositoryAudit } from "@/lib/inspection.types";
 import { ConnectRepository, type RepoConfig } from "@/components/ConnectRepository";
 import { ProviderPanel, type ProviderConfig } from "@/components/ProviderPanel";
+import { InspectionPanel } from "@/components/InspectionPanel";
+import { RepositoryAuditView } from "@/components/RepositoryAuditView";
 import { StatusPill } from "@/components/StatusPill";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -64,10 +68,12 @@ function Dashboard() {
     freeOnly: true,
   });
   const [repoResult, setRepoResult] = useState<RepoConnectionResult | null>(null);
+  const [audit, setAudit] = useState<RepositoryAudit | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
     Partial<Record<"gemini" | "openrouter", ProviderStatus>>
   >({});
   const [hydrated, setHydrated] = useState(false);
+
 
   useEffect(() => {
     try {
@@ -103,17 +109,21 @@ function Dashboard() {
             <Terminal className="size-5 text-primary" />
             <h1 className="text-sm font-semibold tracking-tight sm:text-base">My AI Dev Team</h1>
             <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[0.62rem] text-muted-foreground">
-              PHASE 1
+              PHASE 2
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={repo ? "ok" : "idle"}>
               {repo ? "repo connected" : "repo offline"}
             </StatusPill>
+            <StatusPill tone={audit ? "ok" : "idle"}>
+              {audit ? `inspected ${audit.commitSha.slice(0, 7)}` : "not inspected"}
+            </StatusPill>
             <StatusPill tone={providerReady ? "ok" : "idle"}>
               {providerReady ? "provider ready" : "provider idle"}
             </StatusPill>
           </div>
+
         </div>
       </header>
 
@@ -152,9 +162,23 @@ function Dashboard() {
           config={repoConfig}
           onConfigChange={setRepoConfig}
           result={repoResult}
-          onResult={setRepoResult}
+          onResult={(r) => {
+            setRepoResult(r);
+            setAudit(null);
+          }}
           tokenConfigured={Boolean(secrets?.github)}
         />
+
+        <InspectionPanel
+          repoUrl={repoConfig.repoUrl}
+          branch={repoConfig.branch}
+          connected={Boolean(repo)}
+          audit={audit}
+          onAudit={setAudit}
+        />
+
+        {audit && <RepositoryAuditView audit={audit} />}
+
 
         <ProviderPanel
           config={providerConfig}
@@ -216,7 +240,7 @@ function Dashboard() {
           <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
             {[
               ["Phase 1", "Secure connection layer", true],
-              ["Phase 2", "Repository inspection", false],
+              ["Phase 2", "Repository inspection", true],
               ["Phase 3", "Single coding agent", false],
               ["Phase 4", "Agent tool system", false],
               ["Phase 5", "Project manager orchestration", false],
