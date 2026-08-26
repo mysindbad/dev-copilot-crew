@@ -109,17 +109,21 @@ function Dashboard() {
             <Terminal className="size-5 text-primary" />
             <h1 className="text-sm font-semibold tracking-tight sm:text-base">My AI Dev Team</h1>
             <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[0.62rem] text-muted-foreground">
-              PHASE 1
+              PHASE 2
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={repo ? "ok" : "idle"}>
               {repo ? "repo connected" : "repo offline"}
             </StatusPill>
+            <StatusPill tone={audit ? "ok" : "idle"}>
+              {audit ? `inspected ${audit.commitSha.slice(0, 7)}` : "not inspected"}
+            </StatusPill>
             <StatusPill tone={providerReady ? "ok" : "idle"}>
               {providerReady ? "provider ready" : "provider idle"}
             </StatusPill>
           </div>
+
         </div>
       </header>
 
