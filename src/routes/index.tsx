@@ -162,9 +162,23 @@ function Dashboard() {
           config={repoConfig}
           onConfigChange={setRepoConfig}
           result={repoResult}
-          onResult={setRepoResult}
+          onResult={(r) => {
+            setRepoResult(r);
+            setAudit(null);
+          }}
           tokenConfigured={Boolean(secrets?.github)}
         />
+
+        <InspectionPanel
+          repoUrl={repoConfig.repoUrl}
+          branch={repoConfig.branch}
+          connected={Boolean(repo)}
+          audit={audit}
+          onAudit={setAudit}
+        />
+
+        {audit && <RepositoryAuditView audit={audit} />}
+
 
         <ProviderPanel
           config={providerConfig}
