@@ -68,10 +68,12 @@ function Dashboard() {
     freeOnly: true,
   });
   const [repoResult, setRepoResult] = useState<RepoConnectionResult | null>(null);
+  const [audit, setAudit] = useState<RepositoryAudit | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
     Partial<Record<"gemini" | "openrouter", ProviderStatus>>
   >({});
   const [hydrated, setHydrated] = useState(false);
+
 
   useEffect(() => {
     try {
