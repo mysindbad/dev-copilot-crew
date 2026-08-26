@@ -548,9 +548,13 @@ export async function inspectRepositoryReal(input: {
     rateLimit?: InspectionResult["rateLimit"],
   ): InspectionResult => ({ ok: false, error, errorKind, events, rateLimit });
 
-  const token = process.env["GITHUB_TOKEN"];
+  let token: string | null = process.env["GITHUB_TOKEN"] ?? null;
   if (!token)
-    return fail("The GitHub credential is not configured on the server.", "no_token");
+    push(
+      "No GitHub credential configured",
+      "warn",
+      "Continuing with unauthenticated public access (lower rate limit, public repositories only)",
+    );
 
   const parsed = parseRepoUrl(input.repoUrl);
   if (!parsed) return fail("Repository URL is not a valid github.com/owner/repo reference.", "invalid_url");
@@ -561,6 +565,17 @@ export async function inspectRepositoryReal(input: {
   let repoRes: GhResponse;
   try {
     repoRes = await gh(`/repos/${parsed.owner}/${parsed.repo}`, token);
+    if (repoRes.res.status === 401 && token) {
+      // Stored credential was rejected — fall back to public access so public
+      // repositories remain inspectable, and tell the user plainly.
+      token = null;
+      push(
+        "Stored GitHub credential rejected",
+        "warn",
+        "GitHub returned 401. Falling back to unauthenticated public access — private repositories will not be reachable until a valid token is stored.",
+      );
+      repoRes = await gh(`/repos/${parsed.owner}/${parsed.repo}`, token);
+    }
   } catch {
     return fail("Could not reach the GitHub API. Check network connectivity and retry.", "network");
   }
@@ -575,9 +590,17 @@ export async function inspectRepositoryReal(input: {
         rateLimit,
       );
     if (s === 403) return fail("Access to this repository is forbidden for the stored credential.", "forbidden", rateLimit);
-    if (s === 404) return fail("Repository not found, or the stored credential cannot see it.", "not_found", rateLimit);
+    if (s === 404)
+      return fail(
+        token
+          ? "Repository not found, or the stored credential cannot see it."
+          : "Repository not found. Private repositories require a valid GitHub token to be stored.",
+        "not_found",
+        rateLimit,
+      );
     return fail(safeMessage(`GitHub returned ${s} for the repository request.`), "unknown", rateLimit);
   }
+
   const repo = (await repoRes.res.json()) as {
     full_name: string;
     default_branch: string;
