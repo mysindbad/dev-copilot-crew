@@ -240,7 +240,7 @@ function Dashboard() {
           <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
             {[
               ["Phase 1", "Secure connection layer", true],
-              ["Phase 2", "Repository inspection", false],
+              ["Phase 2", "Repository inspection", true],
               ["Phase 3", "Single coding agent", false],
               ["Phase 4", "Agent tool system", false],
               ["Phase 5", "Project manager orchestration", false],
