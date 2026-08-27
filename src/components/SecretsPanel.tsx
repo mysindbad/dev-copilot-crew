@@ -52,7 +52,10 @@ export function SecretsPanel({
 
   useEffect(() => {
     setStored(getUserSecrets());
-    return subscribeUserSecrets(() => setStored({ ...getUserSecrets() }));
+    const unsubscribe = subscribeUserSecrets(() => setStored({ ...getUserSecrets() }));
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   function save(key: Key) {

@@ -11,7 +11,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 export type SecretName = "GITHUB_TOKEN" | "GEMINI_API_KEY" | "OPENROUTER_API_KEY";
 
-export type SecretOverrides = Partial<Record<SecretName, string>>;
+export type SecretOverrides = { [K in SecretName]?: string | undefined };
 
 const store = new AsyncLocalStorage<SecretOverrides>();
 
