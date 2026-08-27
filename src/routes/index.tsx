@@ -27,6 +27,8 @@ import { GitPanel } from "@/components/GitPanel";
 import { ReviewPanel } from "@/components/ReviewPanel";
 import { TeamChat } from "@/components/TeamChat";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { SecretsPanel } from "@/components/SecretsPanel";
+import { getUserSecrets } from "@/lib/user-secrets";
 import type { ReviewBoardResult } from "@/lib/review.types";
 import type { ChangeSet } from "@/lib/coder.types";
 import { StatusPill } from "@/components/StatusPill";
@@ -98,6 +100,13 @@ function Dashboard() {
     Partial<Record<"gemini" | "openrouter", ProviderStatus>>
   >({});
   const [hydrated, setHydrated] = useState(false);
+  const [secretTick, setSecretTick] = useState(0);
+  const userSecrets = hydrated || secretTick ? getUserSecrets() : {};
+  const keyStatus = {
+    github: Boolean(secrets?.github || userSecrets.GITHUB_TOKEN),
+    gemini: Boolean(secrets?.gemini || userSecrets.GEMINI_API_KEY),
+    openrouter: Boolean(secrets?.openrouter || userSecrets.OPENROUTER_API_KEY),
+  };
 
   useEffect(() => {
     try {
@@ -227,6 +236,15 @@ function Dashboard() {
           }}
         />
 
+        <SecretsPanel
+          serverStatus={{
+            github: Boolean(secrets?.github),
+            gemini: Boolean(secrets?.gemini),
+            openrouter: Boolean(secrets?.openrouter),
+          }}
+          onChange={() => setSecretTick((n) => n + 1)}
+        />
+
         <ConnectRepository
           config={repoConfig}
           onConfigChange={setRepoConfig}
@@ -239,7 +257,7 @@ function Dashboard() {
             setReview(null);
             track("agent.pm", r?.ok ? "act.connected" : "act.connect");
           }}
-          tokenConfigured={Boolean(secrets?.github)}
+          tokenConfigured={keyStatus.github}
         />
 
         <InspectionPanel
@@ -259,7 +277,7 @@ function Dashboard() {
         <ProviderPanel
           config={providerConfig}
           onConfigChange={setProviderConfig}
-          secrets={{ gemini: Boolean(secrets?.gemini), openrouter: Boolean(secrets?.openrouter) }}
+          secrets={{ gemini: keyStatus.gemini, openrouter: keyStatus.openrouter }}
           statuses={providerStatuses}
           onStatus={(s) => setProviderStatuses((prev) => ({ ...prev, [s.provider]: s }))}
         />
