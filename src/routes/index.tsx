@@ -9,10 +9,12 @@ import {
   type RepoConnectionResult,
 } from "@/lib/connection.functions";
 import type { RepositoryAudit } from "@/lib/inspection.types";
+import type { ArchitectPlan } from "@/lib/architect.types";
 import { ConnectRepository, type RepoConfig } from "@/components/ConnectRepository";
 import { ProviderPanel, type ProviderConfig } from "@/components/ProviderPanel";
 import { InspectionPanel } from "@/components/InspectionPanel";
 import { RepositoryAuditView } from "@/components/RepositoryAuditView";
+import { ArchitectPanel } from "@/components/ArchitectPanel";
 import { StatusPill } from "@/components/StatusPill";
 
 
@@ -68,6 +70,7 @@ function Dashboard() {
     freeOnly: true,
   });
   const [repoResult, setRepoResult] = useState<RepoConnectionResult | null>(null);
+  const [plan, setPlan] = useState<ArchitectPlan | null>(null);
   const [audit, setAudit] = useState<RepositoryAudit | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
     Partial<Record<"gemini" | "openrouter", ProviderStatus>>
@@ -109,7 +112,7 @@ function Dashboard() {
             <Terminal className="size-5 text-primary" />
             <h1 className="text-sm font-semibold tracking-tight sm:text-base">My AI Dev Team</h1>
             <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[0.62rem] text-muted-foreground">
-              PHASE 2
+              PHASE 3
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -165,6 +168,7 @@ function Dashboard() {
           onResult={(r) => {
             setRepoResult(r);
             setAudit(null);
+            setPlan(null);
           }}
           tokenConfigured={Boolean(secrets?.github)}
         />
@@ -174,7 +178,10 @@ function Dashboard() {
           branch={repoConfig.branch}
           connected={Boolean(repo)}
           audit={audit}
-          onAudit={setAudit}
+          onAudit={(a) => {
+            setAudit(a);
+            setPlan(null);
+          }}
         />
 
         {audit && <RepositoryAuditView audit={audit} />}
@@ -188,6 +195,14 @@ function Dashboard() {
           onStatus={(s) => setProviderStatuses((prev) => ({ ...prev, [s.provider]: s }))}
         />
 
+        <ArchitectPanel
+          projectId={audit?.projectId ?? null}
+          provider={providerConfig}
+          plan={plan}
+          onPlan={setPlan}
+        />
+
+
         <div className="grid gap-5 lg:grid-cols-2">
           <section className="panel p-4 sm:p-6">
             <header className="flex items-center gap-2.5">
@@ -195,8 +210,9 @@ function Dashboard() {
               <h2 className="text-base font-semibold">Agent team</h2>
             </header>
             <p className="mt-2 text-sm text-muted-foreground">
-              Agents are ready but idle. Phase 2 delivers repository inspection only — the
-              agents cannot read, write or commit yet, so no agent activity is simulated here.
+              Only the Architect Agent is active in Phase 3, and it is read-only: it plans from
+              the real audit. The other agents cannot read, write or commit yet, so no agent
+              activity is simulated here.
             </p>
             <ul className="mt-4 divide-y divide-border">
               {AGENTS.map(([name, perms]) => (
@@ -215,8 +231,9 @@ function Dashboard() {
                 <h2 className="text-base font-semibold">Current task</h2>
               </header>
               <p className="mt-2 text-sm text-muted-foreground">
-                No active task. Inspection is read-only; task execution unlocks in Phase 3 with the
-                Architect Agent, which will consume the audit produced here.
+                {plan
+                  ? `Plan ${plan.taskId} — ${plan.steps.length} steps proposed for "${plan.request}". Planning only; no code is written.`
+                  : "No active task. Generate an Architect plan above; code execution unlocks in Phase 4."}
               </p>
             </section>
 
@@ -241,7 +258,7 @@ function Dashboard() {
             {[
               ["Phase 1", "Secure connection layer", true],
               ["Phase 2", "Repository inspection", true],
-              ["Phase 3", "Single coding agent", false],
+              ["Phase 3", "Architect agent (planning)", true],
               ["Phase 4", "Agent tool system", false],
               ["Phase 5", "Project manager orchestration", false],
               ["Phase 6+", "Multi-agent, sandbox, git approval", false],
