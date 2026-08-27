@@ -1,3 +1,4 @@
+import { getUserSecrets } from "@/lib/user-secrets";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { GitBranch, Github, Loader2, ShieldCheck, Check, X, TriangleAlert } from "lucide-react";
@@ -37,7 +38,7 @@ export function ConnectRepository({
     setFatal(null);
     onResult(null);
     try {
-      const res = await run({ data: config });
+      const res = await run({ data: { ...config, secrets: getUserSecrets() } });
       onResult(res);
     } catch {
       setFatal("The connection check could not be completed. Please retry.");

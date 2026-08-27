@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getUserSecrets } from "@/lib/user-secrets";
 import { useServerFn } from "@tanstack/react-start";
 import { GitBranch, Loader2, ExternalLink } from "lucide-react";
 import { commitStagedChanges } from "@/lib/git.functions";
@@ -62,6 +63,7 @@ export function GitPanel({
     try {
       const res = await run({
         data: {
+          secrets: getUserSecrets(),
           changeSet: {
             changeSetId: changeSet.changeSetId,
             taskId: changeSet.taskId,

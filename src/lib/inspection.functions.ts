@@ -1,10 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { SecretsPayload } from "./user-secrets";
 import type { InspectionResult } from "./inspection.types";
 
 const InspectInput = z.object({
   repoUrl: z.string().min(1),
   branch: z.string().min(1),
+  secrets: SecretsPayload,
 });
 
 export const inspectRepository = createServerFn({ method: "POST" })
@@ -12,9 +14,12 @@ export const inspectRepository = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<InspectionResult> => {
     const { inspectRepositoryReal } = await import("./inspection.server");
     const { rememberAudit } = await import("./project-memory.server");
-    const result = await inspectRepositoryReal(data);
-    if (result.ok && result.audit) rememberAudit(result.audit);
-    return result;
+    const { withSecrets } = await import("./secrets.server");
+    return withSecrets(data.secrets, async () => {
+      const result = await inspectRepositoryReal(data);
+      if (result.ok && result.audit) rememberAudit(result.audit);
+      return result;
+    });
   });
 
 const MemoryInput = z.object({ projectId: z.string().min(1) });

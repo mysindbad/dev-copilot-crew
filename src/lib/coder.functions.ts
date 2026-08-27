@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { ArchitectPlan } from "./architect.types";
+import { SecretsPayload } from "./user-secrets";
 import type { CoderResult } from "./coder.types";
 
 const PlanInput = z.object({
@@ -42,14 +43,18 @@ const CoderInput = z.object({
   primaryModel: z.string(),
   fallbackProvider: z.enum(["gemini", "openrouter", "none"]),
   fallbackModel: z.string(),
+  secrets: SecretsPayload,
 });
 
 export const implementPlan = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CoderInput.parse(input))
   .handler(async ({ data }): Promise<CoderResult> => {
     const { implementPlanReal } = await import("./coder.server");
-    return implementPlanReal({
+    const { withSecrets } = await import("./secrets.server");
+    return withSecrets(data.secrets, async () =>
+      implementPlanReal({
       ...data,
-      plan: data.plan as unknown as ArchitectPlan,
-    });
+        plan: data.plan as unknown as ArchitectPlan,
+      }),
+    );
   });

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getUserSecrets } from "@/lib/user-secrets";
 import { useServerFn } from "@tanstack/react-start";
 import { MessagesSquare, Loader2, Send, Sparkles, ArrowRight } from "lucide-react";
 import { teamLeadChat } from "@/lib/chat.functions";
@@ -61,6 +62,7 @@ export function TeamChat({
     try {
       const res = await run({
         data: {
+          secrets: getUserSecrets(),
           messages: history.map((m) => ({ role: m.role, content: m.content })),
           language: lang,
           context,

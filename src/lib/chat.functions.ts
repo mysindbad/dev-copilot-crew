@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { SecretsPayload } from "./user-secrets";
 import type { ChatResult } from "./chat.types";
 
 const Input = z.object({
@@ -29,11 +30,13 @@ const Input = z.object({
   primaryModel: z.string().default(""),
   fallbackProvider: z.enum(["gemini", "openrouter", "none"]).default("none"),
   fallbackModel: z.string().default(""),
+  secrets: SecretsPayload,
 });
 
 export const teamLeadChat = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ChatResult> => {
     const { runTeamLeadTurn } = await import("./chat.server");
-    return runTeamLeadTurn(data);
+    const { withSecrets } = await import("./secrets.server");
+    return withSecrets(data.secrets, async () => runTeamLeadTurn(data));
   });

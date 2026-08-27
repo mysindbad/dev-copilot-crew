@@ -1,3 +1,4 @@
+import { getSecret } from "./secrets.server";
 import type { ChangeSet } from "./coder.types";
 import type { GitCheck, GitCommitReport, GitEvent, GitResult } from "./git.types";
 import { parseRepoUrl } from "./inspection.server";
@@ -98,7 +99,7 @@ export async function commitChangeSet(input: CommitInput): Promise<GitResult> {
   if (!parsed) return fail(`Unrecognised repository: ${changeSet.repository}`, "github_error");
   const { owner, repo } = parsed;
 
-  const token = process.env["GITHUB_TOKEN"] ?? null;
+  const token = getSecret("GITHUB_TOKEN") ?? null;
   if (!token) {
     checks.push({
       label: "GitHub token",

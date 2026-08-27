@@ -1,3 +1,4 @@
+import { getSecret } from "./secrets.server";
 import { z } from "zod";
 import type { ArchitectPlan, ProviderId } from "./architect.types";
 import type {
@@ -69,7 +70,7 @@ async function readFileAtCommit(
   path: string,
   ref: string,
 ): Promise<{ ok: boolean; content?: string; error?: string }> {
-  const token = process.env["GITHUB_TOKEN"] ?? null;
+  const token = getSecret("GITHUB_TOKEN") ?? null;
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path
     .split("/")
     .map(encodeURIComponent)

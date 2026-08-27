@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getUserSecrets } from "@/lib/user-secrets";
 import { useServerFn } from "@tanstack/react-start";
 import { Code2, Loader2, ShieldCheck } from "lucide-react";
 import { implementPlan } from "@/lib/coder.functions";
@@ -51,6 +52,7 @@ export function CoderPanel({
     try {
       const res = await run({
         data: {
+          secrets: getUserSecrets(),
           plan: {
             taskId: plan.taskId,
             request: plan.request,

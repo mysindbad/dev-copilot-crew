@@ -1,3 +1,4 @@
+import { getSecret } from "./secrets.server";
 import type { ProviderId } from "./architect.types";
 
 /**
@@ -24,8 +25,8 @@ export function redact(message: string): string {
 
 export function hasProviderKey(provider: ProviderId): boolean {
   return provider === "gemini"
-    ? Boolean(process.env["GEMINI_API_KEY"])
-    : Boolean(process.env["OPENROUTER_API_KEY"]);
+    ? Boolean(getSecret("GEMINI_API_KEY"))
+    : Boolean(getSecret("OPENROUTER_API_KEY"));
 }
 
 export async function callLlm(
@@ -36,7 +37,7 @@ export async function callLlm(
 ): Promise<LlmCallResult> {
   try {
     if (provider === "gemini") {
-      const key = process.env["GEMINI_API_KEY"];
+      const key = getSecret("GEMINI_API_KEY");
       if (!key) return { ok: false, error: "GEMINI_API_KEY is not configured." };
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -65,7 +66,7 @@ export async function callLlm(
       return { ok: true, text, status: res.status };
     }
 
-    const key = process.env["OPENROUTER_API_KEY"];
+    const key = getSecret("OPENROUTER_API_KEY");
     if (!key) return { ok: false, error: "OPENROUTER_API_KEY is not configured." };
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",

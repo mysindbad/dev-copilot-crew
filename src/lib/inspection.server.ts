@@ -1,3 +1,4 @@
+import { getSecret } from "./secrets.server";
 import type {
   ApiEndpoint,
   ClassifiedFile,
@@ -554,7 +555,7 @@ export async function inspectRepositoryReal(input: {
     rateLimit?: InspectionResult["rateLimit"],
   ): InspectionResult => ({ ok: false, error, errorKind, events, rateLimit });
 
-  let token: string | null = process.env["GITHUB_TOKEN"] ?? null;
+  let token: string | null = getSecret("GITHUB_TOKEN") ?? null;
   if (!token)
     push(
       "No GitHub credential configured",
