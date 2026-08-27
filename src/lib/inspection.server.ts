@@ -78,7 +78,10 @@ async function gh(path: string, token: string | null): Promise<GhResponse> {
 /* ------------------------------------------------------------------ cache */
 
 const cache = new Map<string, RepositoryAudit>();
-const cacheKey = (repo: string, branch: string, sha: string) => `${repo}@${branch}@${sha}`;
+// Bump when the analysis logic changes so stale audits are never served.
+const ANALYSIS_VERSION = "2";
+const cacheKey = (repo: string, branch: string, sha: string) =>
+  `${ANALYSIS_VERSION}@${repo}@${branch}@${sha}`;
 
 export function readCache(repo: string, branch: string, sha: string) {
   return cache.get(cacheKey(repo, branch, sha));
@@ -86,7 +89,7 @@ export function readCache(repo: string, branch: string, sha: string) {
 export function writeCache(audit: RepositoryAudit) {
   // A new commit SHA produces a new key, so stale inspections are never served.
   for (const key of cache.keys()) {
-    if (key.startsWith(`${audit.repository}@${audit.branch}@`)) cache.delete(key);
+    if (key.includes(`@${audit.repository}@${audit.branch}@`)) cache.delete(key);
   }
   cache.set(cacheKey(audit.repository, audit.branch, audit.commitSha), audit);
 }
@@ -351,6 +354,9 @@ function detectApis(files: ClassifiedFile[], contents: Map<string, string>): Api
   }
   // 2. Express-style route registrations in read files
   for (const [path, src] of contents) {
+    // Documentation shows illustrative snippets; they are not real endpoints.
+    if (/\.(md|mdx|rst|txt)$/i.test(path)) continue;
+
     for (const m of src.matchAll(/\b(?:app|router)\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)["'`]/g)) {
       out.push({
         method: m[1]!.toUpperCase(),
@@ -636,7 +642,8 @@ export async function inspectRepositoryReal(input: {
   const cached = readCache(repo.full_name, branch.name, commitSha);
   if (cached) {
     push("Cached inspection reused", "ok", `Commit ${commitSha.slice(0, 7)} unchanged since last inspection`);
-    return { ok: true, audit: { ...cached, events: [...cached.events, ...events] }, cached: true, events, rateLimit };
+    const cachedEvents = [...cached.events, events[events.length - 1]!];
+    return { ok: true, audit: { ...cached, events: cachedEvents }, cached: true, events: cachedEvents, rateLimit };
   }
 
   // 3. tree
@@ -684,9 +691,25 @@ export async function inspectRepositoryReal(input: {
     .slice(0, 10)
     .map((f) => ({ f, p: { score: 60, reason: "API/backend module" } }));
 
-  const toRead = [...candidates, ...extraApi]
+  // Fill the remaining budget with the primary source files of the largest
+  // source directories, so small repos are not audited on config files alone.
+  const chosen = new Set([...candidates, ...extraApi].map((c) => c.f.path));
+  const extraSource = files
+    .filter(
+      (f) =>
+        !chosen.has(f.path) &&
+        (f.category === "SOURCE" || f.category === "FRONTEND") &&
+        !/^(examples?|samples?|benchmarks?|docs?)\//.test(f.path) &&
+        f.size <= MAX_FILE_BYTES,
+    )
+    .sort((a, b) => a.path.split("/").length - b.path.split("/").length)
+    .slice(0, 12)
+    .map((f) => ({ f, p: { score: 50, reason: "Primary source module" } }));
+
+  const toRead = [...candidates, ...extraApi, ...extraSource]
     .filter((c) => c.f.size <= MAX_FILE_BYTES)
     .slice(0, MAX_FILES_READ);
+
 
   const contents = new Map<string, string>();
   for (const c of toRead) {

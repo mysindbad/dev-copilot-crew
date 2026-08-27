@@ -195,8 +195,8 @@ function Dashboard() {
               <h2 className="text-base font-semibold">Agent team</h2>
             </header>
             <p className="mt-2 text-sm text-muted-foreground">
-              Agents are ready. Execution is not enabled yet — Phase 1 delivers the verified
-              connection layer only, so no agent activity is simulated here.
+              Agents are ready but idle. Phase 2 delivers repository inspection only — the
+              agents cannot read, write or commit yet, so no agent activity is simulated here.
             </p>
             <ul className="mt-4 divide-y divide-border">
               {AGENTS.map(([name, perms]) => (
@@ -215,8 +215,8 @@ function Dashboard() {
                 <h2 className="text-base font-semibold">Current task</h2>
               </header>
               <p className="mt-2 text-sm text-muted-foreground">
-                No active task. Task submission unlocks in Phase 2, once repository inspection is
-                wired to the connected repository.
+                No active task. Inspection is read-only; task execution unlocks in Phase 3 with the
+                Architect Agent, which will consume the audit produced here.
               </p>
             </section>
 

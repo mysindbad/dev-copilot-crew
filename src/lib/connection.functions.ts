@@ -151,11 +151,14 @@ export const testRepositoryConnection = createServerFn({ method: "POST" })
     checks.push({
       id: "write",
       label: "Write access",
-      state: writeAccess ? "ok" : "fail",
+      state: writeAccess ? "ok" : token ? "fail" : "skip",
       detail: writeAccess
         ? "Token can push to this repository"
-        : "Token is read-only — commits and pushes will be blocked",
+        : token
+          ? "Token is read-only — commits and pushes will be blocked"
+          : "Unauthenticated access — read only. Phase 2 is inspection only, so this does not block the audit.",
     });
+
 
     // 3. Branch access + last commit
     const branchRes = await gh(

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { GitBranch, Github, Loader2, ShieldCheck, Check, X } from "lucide-react";
+import { GitBranch, Github, Loader2, ShieldCheck, Check, X, TriangleAlert } from "lucide-react";
 import {
   testRepositoryConnection,
   type RepoConnectionResult,
@@ -127,9 +127,12 @@ export function ConnectRepository({
             <div key={c.id} className="flex items-start gap-2.5 text-sm">
               {c.state === "ok" ? (
                 <Check className="mt-0.5 size-4 shrink-0 text-success" />
+              ) : c.state === "skip" ? (
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
               ) : (
                 <X className="mt-0.5 size-4 shrink-0 text-destructive" />
               )}
+
               <div className="min-w-0">
                 <span className="font-medium">{c.label}</span>
                 <span className="ml-2 font-mono text-xs break-words text-muted-foreground">
