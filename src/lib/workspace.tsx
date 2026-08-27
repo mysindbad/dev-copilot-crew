@@ -31,7 +31,6 @@ import type { RepoConfig } from "@/components/ConnectRepository";
 import type { ProviderConfig } from "@/components/ProviderPanel";
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
-import { pickModel, KEY_SOURCES, type AgentRole } from "@/lib/model-picker";
 
 /**
  * Shared workspace state for the whole app.
@@ -154,11 +153,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   providerRef.current = providerConfig;
   const auditRef = useRef(audit);
   auditRef.current = audit;
-  const providerStatusRef = useRef(providerStatuses);
-  providerStatusRef.current = providerStatuses;
-  const modelCache = useRef<
-    Record<string, { provider: "gemini" | "openrouter"; model: string; note: string }>
-  >({});
 
   useEffect(() => {
     try {
@@ -205,9 +199,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     openrouter: Boolean(serverSecrets.openrouter || userSecrets.OPENROUTER_API_KEY),
   };
 
-  const keyRef = useRef(keyStatus);
-  keyRef.current = keyStatus;
-
   function say(entry: Omit<ChatEntry, "id">) {
     setMessages((prev) => [...prev, { ...entry, id: id() }]);
   }
@@ -216,52 +207,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setProviderStatuses((prev) => ({ ...prev, [s.provider]: s }));
   }, []);
 
-  /**
-   * Pick the provider + model to use for a role.
-   *
-   * Uses only the model ids the provider really returned for the available
-   * key, prefers free models, and remembers the choice per role.
-   */
-  const ensureModel = useCallback(
-    async (role: AgentRole): Promise<{ provider: "gemini" | "openrouter"; model: string; note: string } | null> => {
-      const cfg = providerRef.current;
-      if (cfg.primaryModel) {
-        return { provider: cfg.primaryProvider, model: cfg.primaryModel, note: "" };
-      }
-      const cached = modelCache.current[role];
-      if (cached) return cached;
-
-      const order: ("gemini" | "openrouter")[] =
-        cfg.primaryProvider === "openrouter" ? ["openrouter", "gemini"] : ["gemini", "openrouter"];
-      for (const provider of order) {
-        if (!keyRef.current[provider]) continue;
-        let status = providerStatusRef.current[provider];
-        if (!status || !status.ok) {
-          status = await providerFn({ data: { provider, secrets: getUserSecrets() } });
-          setProviderStatus(status);
-        }
-        if (!status.ok || status.models.length === 0) continue;
-        const picked = pickModel(provider, status.models, role);
-        if (!picked) continue;
-        const choice = { provider, model: picked.model, note: picked.reason };
-        modelCache.current[role] = choice;
-        return choice;
-      }
-      return null;
-    },
-    [providerFn, setProviderStatus],
-  );
-
-  /** Arabic guidance when no usable AI key exists. */
-  function missingKeyMessage(): string {
-    return [
-      "ما قدرتش نخدم: ما كاين حتى مفتاح ذكاء اصطناعي صالح.",
-      `• Gemini (مجاني): ${KEY_SOURCES.gemini.url}`,
-      `• OpenRouter (فيه نماذج مجانية :free): ${KEY_SOURCES.openrouter.url}`,
-      "من بعد ما تجيب المفتاح، حل أيقونة الإعدادات فوق ولصقو، ونكملو.",
-    ].join("\n");
-  }
-
+  /** Make sure a usable model is selected; discovers one when needed. */
+  const ensureModel = useCallback(async (): Promise<string> => {
+    const cfg = providerRef.current;
+    if (cfg.primaryModel) return cfg.primaryModel;
+    const provider = cfg.primaryProvider;
+    const status = await providerFn({ data: { provider, secrets: getUserSecrets() } });
+    setProviderStatus(status);
+    if (!status.ok || status.models.length === 0) return "";
+    const models = status.models;
+    const pick =
+      provider === "gemini"
+        ? (models.find((m) => /flash/i.test(m) && !/thinking|exp-\d/i.test(m)) ?? models[0]!)
+        : (models.find((m) => m.endsWith(":free")) ?? models[0]!);
+    setProviderConfig({ ...cfg, primaryModel: pick });
+    return pick;
+  }, [providerFn, setProviderStatus]);
 
   function step(agent: string, action: string, model?: string) {
     const entryId = log({ agent, action, state: "running", ...(model ? { model } : {}) });
@@ -286,19 +247,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      const planPick = await ensureModel("plan");
-      const codePick = (await ensureModel("code")) ?? planPick;
-      const reviewPick = (await ensureModel("review")) ?? planPick;
-      if (!planPick || !codePick || !reviewPick) {
-        say({ role: "assistant", agent: "مدير المشروع", content: missingKeyMessage() });
-        return;
-      }
-      if (planPick.note) {
+      const model = await ensureModel();
+      if (!model) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: `${planPick.note} (اختيار تلقائي من النماذج المتاحة عندك)`,
+          content:
+            "ما قدرتش نبدا: ما كاينش نموذج ذكاء اصطناعي جاهز. زيد مفتاح Gemini ولا OpenRouter من الإعدادات.",
         });
+        return;
       }
 
       setPipeline({ running: true, phase: "inspect", note: "" });
@@ -337,13 +294,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         // 2) Architect plan.
         setPipeline({ running: true, phase: "plan", note: "" });
-        const sPlan = step("المهندس المعماري", "إنشاء الخطة التقنية", planPick.model);
+        const sPlan = step("المهندس المعماري", "إنشاء الخطة التقنية", model);
         const planRes = await architectFn({
           data: {
             projectId: currentAudit.projectId,
             request: task,
-            primaryProvider: planPick.provider,
-            primaryModel: planPick.model,
+            primaryProvider: cfg.primaryProvider,
+            primaryModel: model,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
@@ -367,13 +324,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         // 3) Coder.
         setPipeline({ running: true, phase: "code", note: "" });
-        const sCode = step("المبرمج", "كتابة التعديلات على الملفات", codePick.model);
+        const sCode = step("المبرمج", "كتابة التعديلات على الملفات", model);
         const coderRes = await coderFn({
           data: {
             plan: newPlan,
             stepOrders: newPlan.steps.map((st) => st.order),
-            primaryProvider: codePick.provider,
-            primaryModel: codePick.model,
+            primaryProvider: cfg.primaryProvider,
+            primaryModel: model,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
@@ -398,7 +355,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         // 4) Review board.
         setPipeline({ running: true, phase: "review", note: "" });
-        const sRev = step("مجلس المراجعة", "مراجعة الكود والأمان والجودة", reviewPick.model);
+        const sRev = step("مجلس المراجعة", "مراجعة الكود والأمان والجودة", model);
         const revRes = await reviewFn({
           data: {
             changeSetId: cs.changeSetId,
@@ -417,8 +374,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               diffText: f.diff.map((l) => l.text).join("\n"),
             })),
             reviewers: ["code", "security", "qa"] as ("code" | "security" | "qa")[],
-            primaryProvider: reviewPick.provider,
-            primaryModel: reviewPick.model,
+            primaryProvider: cfg.primaryProvider,
+            primaryModel: model,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
@@ -431,12 +388,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
         sRev.ok(
           `${revRes.gate === "APPROVED" ? "موافقة" : "مطلوب تعديلات"} · ${revRes.totals.blockers} مانع`,
-          revRes.reports[0]?.model ?? reviewPick.model,
+          revRes.reports[0]?.model ?? model,
         );
         say({
           role: "assistant",
           agent: "مجلس المراجعة",
-          model: revRes.reports[0]?.model ?? reviewPick.model,
+          model: revRes.reports[0]?.model ?? model,
           content:
             revRes.gate === "APPROVED"
               ? `المراجعة دازت بنجاح ✅ (${revRes.totals.majors} ملاحظة مهمة، ${revRes.totals.minors} بسيطة).`
@@ -550,14 +507,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const chatPick = await ensureModel("chat");
-      if (!chatPick) {
-        setChatBusy(false);
-        say({ role: "assistant", agent: "مدير المشروع", content: missingKeyMessage() });
-        return;
-      }
+      const model = await ensureModel();
       const cfg = providerRef.current;
-      const a = step("مدير المشروع", "يجاوب على سؤالك", chatPick.model);
+      const a = step("مدير المشروع", "يجاوب على سؤالك", model);
       try {
         const res = await chatFn({
           data: {
@@ -584,8 +536,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 : "",
               reviewGate: review?.gate ?? "",
             },
-            primaryProvider: chatPick.provider,
-            primaryModel: chatPick.model,
+            primaryProvider: cfg.primaryProvider,
+            primaryModel: model,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),

@@ -1,130 +1,207 @@
-import { useEffect, useRef, useState } from "react";
-import { Send, Loader2, MessageSquare, Sparkles, Rocket } from "lucide-react";
-import { useWorkspace } from "@/lib/workspace";
+import { useState } from "react";
+import { getUserSecrets } from "@/lib/user-secrets";
+import { useServerFn } from "@tanstack/react-start";
+import { MessagesSquare, Loader2, Send, Sparkles, ArrowRight } from "lucide-react";
+import { teamLeadChat } from "@/lib/chat.functions";
+import type { ChatMessage, ChatTurn } from "@/lib/chat.types";
+import type { ProviderConfig } from "./ProviderPanel";
+import { StatusPill } from "./StatusPill";
+import { useI18n } from "@/lib/i18n";
+import { useActivity } from "@/lib/activity";
 
-/**
- * Project Manager conversation.
- *
- * The human discusses the idea; once they agree, telling the manager to hand it
- * over ("عطيها للمهندس", "ابدأ"…) starts the automatic agent pipeline.
- */
-export function TeamChat() {
-  const ws = useWorkspace();
-  const [text, setText] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
+interface Bubble extends ChatMessage {
+  turn?: ChatTurn;
+}
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [ws.messages.length, ws.chatBusy]);
+export function TeamChat({
+  provider,
+  context,
+  onUseTask,
+}: {
+  provider: ProviderConfig;
+  context: {
+    repository: string;
+    branch: string;
+    commitSha: string;
+    stack: string[];
+    entryPoints: string[];
+    apiRoutes: number;
+    fileCount: number;
+    planSummary: string;
+    changeSetSummary: string;
+    reviewGate: string;
+  };
+  onUseTask: (task: string) => void;
+}) {
+  const { t, lang } = useI18n();
+  const { log, finish } = useActivity();
+  const run = useServerFn(teamLeadChat);
+  const [messages, setMessages] = useState<Bubble[]>([]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function send(value?: string) {
-    const content = (value ?? text).trim();
-    if (!content) return;
-    setText("");
-    await ws.sendMessage(content);
+  const ready = Boolean(provider.primaryModel);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || busy || !ready) return;
+    const history: Bubble[] = [...messages, { role: "user", content: text }];
+    setMessages(history);
+    setInput("");
+    setBusy(true);
+    setError(null);
+
+    const activityId = log({
+      agent: t("agent.lead"),
+      action: t("act.chat"),
+      model: provider.primaryModel,
+      state: "running",
+    });
+
+    try {
+      const res = await run({
+        data: {
+          secrets: getUserSecrets(),
+          messages: history.map((m) => ({ role: m.role, content: m.content })),
+          language: lang,
+          context,
+          primaryProvider: provider.primaryProvider,
+          primaryModel: provider.primaryModel,
+          fallbackProvider: provider.fallbackProvider,
+          fallbackModel: provider.fallbackModel,
+        },
+      });
+      if (res.ok && res.turn) {
+        setMessages([...history, { role: "assistant", content: res.turn.reply, turn: res.turn }]);
+        finish(activityId, {
+          state: "done",
+          action: t("act.chatDone"),
+          model: res.turn.model,
+          detail: `${res.turn.ms} ms`,
+        });
+      } else {
+        setError(res.error ?? "unknown error");
+        finish(activityId, { state: "failed", detail: res.error ?? "" });
+      }
+    } catch {
+      setError("network error");
+      finish(activityId, { state: "failed" });
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const busy = ws.chatBusy || ws.pipeline.running;
-
   return (
-    <section className="panel flex h-[70vh] min-h-[520px] flex-col p-4 sm:p-5">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+    <section className="panel p-4 sm:p-6">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <MessageSquare className="size-4 text-primary" />
-          <h2 className="text-base font-semibold">مدير المشروع</h2>
+          <MessagesSquare className="size-4 text-primary" />
+          <h2 className="text-base font-semibold">{t("chat.title")}</h2>
         </div>
         <div className="flex items-center gap-2">
-          {ws.pipeline.running && (
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[0.7rem] text-primary">
-              <Loader2 className="size-3 animate-spin" />
-              الفريق كيخدم…
-            </span>
-          )}
-          {ws.messages.length > 0 && (
+          {messages.length > 0 && (
             <button
-              onClick={ws.clearChat}
-              className="rounded-md border border-border px-2 py-1 text-[0.7rem] text-muted-foreground hover:text-foreground"
+              type="button"
+              onClick={() => setMessages([])}
+              className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              مسح المحادثة
+              {t("chat.clear")}
             </button>
           )}
+          <StatusPill tone={ready ? "ok" : "warn"}>
+            {ready ? provider.primaryModel : t("status.providerIdle")}
+          </StatusPill>
         </div>
       </header>
 
-      <div className="flex-1 space-y-3 overflow-y-auto py-4 pe-1">
-        {ws.messages.length === 0 && (
-          <div className="rounded-md border border-border bg-surface/60 p-4 text-sm leading-7 text-muted-foreground">
-            سلام! أنا مدير المشروع.
-            <br />
-            قول لي شنو بغيتي تصاوب فالمشروع ديالك، غادي نسولك شي أسئلة باش نفهم مزيان.
-            <br />
-            ملي نتفاهمو، غير قول لي «عطيها للمهندس» وأنا نسلّم الخدمة للفريق: المهندس، المبرمج،
-            المراجعة، ومدير Git — كلشي أوتوماتيك.
-          </div>
-        )}
+      <p className="mt-2 text-sm text-muted-foreground">{t("chat.desc")}</p>
 
-        {ws.messages.map((m) => (
-          <div
-            key={m.id}
-            className={
-              m.role === "user"
-                ? "ms-auto max-w-[85%] rounded-md bg-primary px-3.5 py-2.5 text-sm text-primary-foreground"
-                : "max-w-[92%] rounded-md border border-border bg-surface/60 px-3.5 py-2.5 text-sm"
-            }
-          >
-            {m.role === "assistant" && (
-              <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[0.68rem] text-muted-foreground">
-                <span className="font-semibold text-foreground">{m.agent ?? "مدير المشروع"}</span>
-                {m.model && (
+      <div className="mt-4 max-h-[26rem] space-y-3 overflow-y-auto pe-1">
+        {messages.length === 0 && (
+          <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+            {t("chat.empty")}
+          </p>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+            <div
+              className={
+                "max-w-[92%] rounded-lg border px-3.5 py-2.5 text-sm leading-relaxed " +
+                (m.role === "user"
+                  ? "border-primary/30 bg-primary/10"
+                  : "border-border bg-surface/70")
+              }
+            >
+              <div className="mb-1 flex flex-wrap items-center gap-2 text-[0.66rem] text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {m.role === "user" ? t("chat.you") : t("agent.lead")}
+                </span>
+                {m.turn && (
                   <span className="rounded border border-border px-1.5 py-0.5 font-mono">
-                    {m.model}
+                    {m.turn.model} · {m.turn.ms} ms
+                    {m.turn.usedFallback ? " · fallback" : ""}
                   </span>
                 )}
               </div>
-            )}
-            <p className="whitespace-pre-wrap leading-7">{m.content}</p>
+              <p className="whitespace-pre-wrap">{m.content}</p>
 
-            {m.questions && m.questions.length > 0 && (
-              <ul className="mt-2 space-y-1 border-t border-border pt-2 text-[0.8rem] text-muted-foreground">
-                {m.questions.map((q, i) => (
-                  <li key={i}>• {q}</li>
-                ))}
-              </ul>
-            )}
-
-            {m.suggestedTask && (
-              <div className="mt-3 rounded-md border border-border bg-background p-3">
-                <div className="flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
-                  <Sparkles className="size-3 text-primary" />
-                  المهمة المقترحة
+              {m.turn && m.turn.questions.length > 0 && (
+                <div className="mt-3 rounded-md border border-border bg-background/40 p-2.5">
+                  <span className="label-caps">{t("chat.questions")}</span>
+                  <ul className="mt-1.5 space-y-1">
+                    {m.turn.questions.map((q, qi) => (
+                      <li key={qi} className="flex gap-2 text-xs text-muted-foreground">
+                        <ArrowRight className="mt-0.5 size-3 shrink-0 text-primary" />
+                        <span>{q}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <p className="mt-1 text-[0.82rem] leading-6">{m.suggestedTask}</p>
-                <button
-                  onClick={() => ws.runPipeline(m.suggestedTask!)}
-                  disabled={busy}
-                  className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  <Rocket className="size-3.5" />
-                  عطيها للفريق
-                </button>
-              </div>
-            )}
+              )}
+
+              {m.turn?.suggestedTask && (
+                <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-2.5">
+                  <span className="label-caps">{t("chat.suggestedTask")}</span>
+                  <p className="mt-1 font-mono text-xs break-words">{m.turn.suggestedTask}</p>
+                  <button
+                    type="button"
+                    onClick={() => onUseTask(m.turn!.suggestedTask)}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    <Sparkles className="size-3.5" />
+                    {t("chat.useTask")}
+                  </button>
+                </div>
+              )}
+
+              {m.turn?.nextStep && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  <span className="label-caps">{t("chat.nextStep")}</span> — {m.turn.nextStep}
+                </p>
+              )}
+            </div>
           </div>
         ))}
-
-        {ws.chatBusy && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        {busy && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin text-primary" />
-            المدير كيفكر…
+            {t("chat.thinking")}
+            <span className="font-mono">{provider.primaryModel}</span>
           </div>
         )}
-        <div ref={endRef} />
       </div>
 
-      <div className="flex items-end gap-2 border-t border-border pt-3">
+      {error && (
+        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 font-mono text-xs break-words text-destructive">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-end gap-2">
         <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -132,16 +209,18 @@ export function TeamChat() {
             }
           }}
           rows={2}
-          placeholder="اكتب هنا… مثال: بغيت نزيد صفحة تسجيل الدخول"
-          className="min-h-[46px] flex-1 resize-none rounded-md border border-border bg-input px-3 py-2.5 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+          disabled={!ready}
+          placeholder={ready ? t("chat.placeholder") : t("chat.needProvider")}
+          className="min-w-0 flex-1 rounded-md border border-border bg-input px-3 py-2 text-sm outline-none focus:border-ring disabled:opacity-60"
         />
         <button
+          type="button"
           onClick={() => void send()}
-          disabled={busy || !text.trim()}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          disabled={!ready || busy || input.trim().length === 0}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
-          <Send className="size-4" />
-          أرسل
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+          {t("chat.send")}
         </button>
       </div>
     </section>

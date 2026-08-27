@@ -6,7 +6,6 @@ import { testProvider, type ProviderStatus } from "@/lib/connection.functions";
 import { StatusPill } from "./StatusPill";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
-import { arabize } from "@/lib/ar";
 
 export interface ProviderConfig {
   primaryProvider: "gemini" | "openrouter";
@@ -42,7 +41,7 @@ export function ProviderPanel({
         provider,
         configured: true,
         ok: false,
-        detail: "المزوّد غير متاح — ما قدرناش نكملو الاختبار.",
+        detail: "AI provider unavailable — the check could not be completed.",
         models: [],
       });
     } finally {
@@ -51,8 +50,8 @@ export function ProviderPanel({
   }
 
   const providers: { id: "gemini" | "openrouter"; name: string; note: string }[] = [
-    { id: "gemini", name: "Gemini", note: "واجهة Google للنماذج" },
-    { id: "openrouter", name: "OpenRouter", note: "كيدعم النماذج المجانية" },
+    { id: "gemini", name: "Gemini", note: "Google Generative Language API" },
+    { id: "openrouter", name: "OpenRouter", note: "Free-model routing supported" },
   ];
 
   const primaryModels = statuses[config.primaryProvider]?.models ?? [];
@@ -78,7 +77,7 @@ export function ProviderPanel({
                   <div className="font-mono text-[0.68rem] text-muted-foreground">{p.note}</div>
                 </div>
                 <StatusPill tone={st?.ok ? "ok" : st ? "fail" : configured ? "warn" : "idle"}>
-                  {st?.ok ? "تم التحقق" : st ? "خطأ" : configured ? "لم يُختبر" : "بدون مفتاح"}
+                  {st?.ok ? "verified" : st ? "error" : configured ? "untested" : "no key"}
                 </StatusPill>
               </div>
               <div className="mt-3 flex items-center gap-2 text-xs">
@@ -86,7 +85,7 @@ export function ProviderPanel({
                   className={cn("size-3.5", configured ? "text-success" : "text-muted-foreground")}
                 />
                 <span className="font-mono text-muted-foreground">
-                  {configured ? "المفتاح محفوظ ••••••" : "ما كاين حتى مفتاح"}
+                  {configured ? "key stored server-side ••••••" : "key not configured"}
                 </span>
               </div>
               <button
@@ -104,7 +103,7 @@ export function ProviderPanel({
                     st.ok ? "text-muted-foreground" : "text-destructive",
                   )}
                 >
-                  {arabize(st.detail)}
+                  {st.detail}
                 </p>
               )}
             </div>
@@ -115,7 +114,7 @@ export function ProviderPanel({
       <div className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
         <div>
           <label className="label-caps" htmlFor="primaryProvider">
-            المزوّد الأساسي
+            Primary provider
           </label>
           <select
             id="primaryProvider"
@@ -135,7 +134,7 @@ export function ProviderPanel({
         </div>
         <div>
           <label className="label-caps" htmlFor="primaryModel">
-            النموذج الأساسي
+            Primary model
           </label>
           <select
             id="primaryModel"
@@ -145,7 +144,7 @@ export function ProviderPanel({
             className="mt-1.5 w-full rounded-md border border-border bg-input px-3 py-2 font-mono text-xs outline-none focus:border-ring disabled:opacity-50"
           >
             <option value="">
-              {primaryModels.length ? "اختر نموذجًا" : "اختبر المزوّد باش تظهر النماذج"}
+              {primaryModels.length ? "Select a model" : "Test the provider to load models"}
             </option>
             {primaryModels.map((m) => (
               <option key={m} value={m}>
@@ -156,7 +155,7 @@ export function ProviderPanel({
         </div>
         <div>
           <label className="label-caps" htmlFor="fallbackProvider">
-            المزوّد الاحتياطي
+            Fallback provider
           </label>
           <select
             id="fallbackProvider"
@@ -170,14 +169,14 @@ export function ProviderPanel({
             }
             className="mt-1.5 w-full rounded-md border border-border bg-input px-3 py-2 text-sm outline-none focus:border-ring"
           >
-            <option value="none">بدون احتياطي</option>
+            <option value="none">No fallback</option>
             <option value="gemini">Gemini</option>
             <option value="openrouter">OpenRouter</option>
           </select>
         </div>
         <div>
           <label className="label-caps" htmlFor="fallbackModel">
-            النموذج الاحتياطي
+            Fallback model
           </label>
           <select
             id="fallbackModel"
@@ -187,7 +186,7 @@ export function ProviderPanel({
             className="mt-1.5 w-full rounded-md border border-border bg-input px-3 py-2 font-mono text-xs outline-none focus:border-ring disabled:opacity-50"
           >
             <option value="">
-              {fallbackModels.length ? "اختر نموذجًا" : "ما كاين حتى نموذج"}
+              {fallbackModels.length ? "Select a model" : "No models loaded"}
             </option>
             {fallbackModels.map((m) => (
               <option key={m} value={m}>
@@ -206,9 +205,10 @@ export function ProviderPanel({
           className="mt-0.5 size-4 accent-[var(--primary)]"
         />
         <span>
-          المجاني فقط
+          Free-only routing
           <span className="mt-0.5 block font-mono text-[0.7rem] text-muted-foreground">
-            المنصة عمرها غادي تستعمل نموذج مؤدى. إلا فشلات كل النماذج المجانية، كتوقف الخدمة مع شرح.
+            The platform will never route to a paid model. If every free route fails, the task
+            stops with an explanation.
           </span>
         </span>
       </label>

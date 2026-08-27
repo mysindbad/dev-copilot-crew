@@ -13,7 +13,6 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { I18nProvider } from "../lib/i18n";
 import { ActivityProvider } from "../lib/activity";
-import { WorkspaceProvider } from "../lib/workspace";
 
 function NotFoundComponent() {
   return (
@@ -137,10 +136,8 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <ActivityProvider>
-          <WorkspaceProvider>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-          </WorkspaceProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
         </ActivityProvider>
       </I18nProvider>
     </QueryClientProvider>
