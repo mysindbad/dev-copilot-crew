@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { DraftingCompass, Loader2 } from "lucide-react";
 import { generateArchitecturePlan } from "@/lib/architect.functions";
@@ -6,23 +6,31 @@ import type { ArchitectAttempt, ArchitectPlan } from "@/lib/architect.types";
 import type { ProviderConfig } from "./ProviderPanel";
 import { StatusPill } from "./StatusPill";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export function ArchitectPanel({
   projectId,
   provider,
   plan,
+  seedRequest,
   onPlan,
 }: {
   projectId: string | null;
   provider: ProviderConfig;
   plan: ArchitectPlan | null;
+  seedRequest?: string;
   onPlan: (p: ArchitectPlan | null) => void;
 }) {
+  const { t } = useI18n();
   const run = useServerFn(generateArchitecturePlan);
   const [request, setRequest] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempts, setAttempts] = useState<ArchitectAttempt[]>([]);
+
+  useEffect(() => {
+    if (seedRequest) setRequest(seedRequest);
+  }, [seedRequest]);
 
   const ready = Boolean(projectId) && Boolean(provider.primaryModel) && request.trim().length >= 8;
 
@@ -62,7 +70,7 @@ export function ArchitectPanel({
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <DraftingCompass className="size-4 text-primary" />
-          <h2 className="text-base font-semibold">Architect agent</h2>
+          <h2 className="text-base font-semibold">{t("panel.architect.title")}</h2>
         </div>
         <StatusPill tone={plan ? "ok" : projectId ? "idle" : "warn"}>
           {plan ? "plan ready" : projectId ? "idle" : "needs inspection"}
@@ -70,12 +78,11 @@ export function ArchitectPanel({
       </header>
 
       <p className="mt-2 text-sm text-muted-foreground">
-        Read-only planning. The Architect uses only the facts from the repository audit — it
-        never writes files or commits.
+{t("panel.architect.desc")}
       </p>
 
       <label className="label-caps mt-4 block" htmlFor="architect-request">
-        Task request
+        {t("panel.architect.request")}
       </label>
       <textarea
         id="architect-request"
@@ -93,7 +100,7 @@ export function ArchitectPanel({
           className="inline-flex items-center gap-2 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {busy && <Loader2 className="size-4 animate-spin" />}
-          Generate plan
+          {t("panel.architect.button")}
         </button>
         <span className="font-mono text-[0.7rem] text-muted-foreground">
           {!projectId

@@ -4,6 +4,7 @@ import { Check, Loader2, Radar, TriangleAlert, X } from "lucide-react";
 import { inspectRepository } from "@/lib/inspection.functions";
 import type { InspectionResult, RepositoryAudit } from "@/lib/inspection.types";
 import { StatusPill } from "./StatusPill";
+import { useI18n } from "@/lib/i18n";
 
 export type InspectionPhase =
   | "idle"
@@ -33,6 +34,7 @@ export function InspectionPanel({
   audit: RepositoryAudit | null;
   onAudit: (a: RepositoryAudit | null) => void;
 }) {
+  const { t } = useI18n();
   const run = useServerFn(inspectRepository);
   const [phase, setPhase] = useState<InspectionPhase>(audit ? "completed" : "idle");
   const [result, setResult] = useState<InspectionResult | null>(null);
@@ -67,7 +69,7 @@ export function InspectionPanel({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <Radar className="size-4 text-primary" />
-          <h2 className="text-base font-semibold">Repository inspection</h2>
+          <h2 className="text-base font-semibold">{t("panel.inspect.title")}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {result?.cached && <StatusPill tone="idle">cached (same commit)</StatusPill>}
@@ -80,9 +82,7 @@ export function InspectionPanel({
       </header>
 
       <p className="mt-2 text-sm text-muted-foreground">
-        Reads the real repository tree at the current commit, prioritises architecture-relevant
-        files and produces an evidence-based audit. Inspection is read-only — nothing is written,
-        committed or pushed.
+{t("panel.inspect.desc")}
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -92,7 +92,7 @@ export function InspectionPanel({
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {running ? <Loader2 className="size-4 animate-spin" /> : <Radar className="size-4" />}
-          {running ? "Inspecting…" : audit ? "Re-inspect repository" : "Inspect repository"}
+          {running ? t("panel.inspect.busy") : audit ? t("panel.inspect.again") : t("panel.inspect.button")}
         </button>
         {!connected && (
           <span className="font-mono text-xs text-muted-foreground">

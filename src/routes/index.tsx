@@ -2,7 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Terminal, GitCommitHorizontal, Users, Lock, ListTodo } from "lucide-react";
+import {
+  Terminal,
+  GitCommitHorizontal,
+  Users,
+  Lock,
+  ListTodo,
+  Languages,
+} from "lucide-react";
 import {
   getSecretsStatus,
   type ProviderStatus,
@@ -18,10 +25,13 @@ import { ArchitectPanel } from "@/components/ArchitectPanel";
 import { CoderPanel } from "@/components/CoderPanel";
 import { GitPanel } from "@/components/GitPanel";
 import { ReviewPanel } from "@/components/ReviewPanel";
+import { TeamChat } from "@/components/TeamChat";
+import { ActivityFeed } from "@/components/ActivityFeed";
 import type { ReviewBoardResult } from "@/lib/review.types";
 import type { ChangeSet } from "@/lib/coder.types";
 import { StatusPill } from "@/components/StatusPill";
-
+import { useI18n, type TKey } from "@/lib/i18n";
+import { useActivity } from "@/lib/activity";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,19 +57,23 @@ export const Route = createFileRoute("/")({
 
 const CONFIG_KEY = "aidevteam.config.v1";
 
-const AGENTS = [
-  ["Project Manager", "Orchestration only"],
-  ["Architect", "Read only"],
-  ["UI/UX Reviewer", "Read only"],
-  ["Frontend Developer", "Read · Write · Execute"],
-  ["Backend Developer", "Read · Write · Execute"],
-  ["Security Reviewer", "Read only"],
-  ["QA / Tester", "Read · Execute"],
-  ["Debugger", "Read · Execute"],
-  ["Code Reviewer", "Read only"],
-] as const;
+const AGENTS: [TKey, TKey][] = [
+  ["agent.pm", "perm.orchestration"],
+  ["agent.architect", "perm.read"],
+  ["agent.uiux", "perm.read"],
+  ["agent.frontend", "perm.rwx"],
+  ["agent.backend", "perm.rwx"],
+  ["agent.security", "perm.read"],
+  ["agent.qa", "perm.rx"],
+  ["agent.debugger", "perm.rx"],
+  ["agent.reviewer", "perm.read"],
+];
 
 function Dashboard() {
+  const { t, lang, toggle } = useI18n();
+  const tx = (ar: string, en: string) => (lang === "ar" ? ar : en);
+  const { log, finish } = useActivity();
+
   const secretsFn = useServerFn(getSecretsStatus);
   const { data: secrets } = useQuery({
     queryKey: ["secrets-status"],
@@ -79,11 +93,11 @@ function Dashboard() {
   const [changeSet, setChangeSet] = useState<ChangeSet | null>(null);
   const [review, setReview] = useState<ReviewBoardResult | null>(null);
   const [audit, setAudit] = useState<RepositoryAudit | null>(null);
+  const [seedRequest, setSeedRequest] = useState("");
   const [providerStatuses, setProviderStatuses] = useState<
     Partial<Record<"gemini" | "openrouter", ProviderStatus>>
   >({});
   const [hydrated, setHydrated] = useState(false);
-
 
   useEffect(() => {
     try {
@@ -111,69 +125,107 @@ function Dashboard() {
   const repo = repoResult?.ok ? repoResult.repository : undefined;
   const providerReady = Object.values(providerStatuses).some((s) => s?.ok);
 
+  function track(agent: TKey, action: TKey, model?: string, detail?: string) {
+    const id = log({ agent: t(agent), action: t(action), state: "done", ...(model ? { model } : {}), ...(detail ? { detail } : {}) });
+    finish(id, { state: "done" });
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
           <div className="flex items-center gap-2.5">
             <Terminal className="size-5 text-primary" />
-            <h1 className="text-sm font-semibold tracking-tight sm:text-base">My AI Dev Team</h1>
-            <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[0.62rem] text-muted-foreground">
-              PHASE 6
-            </span>
+            <h1 className="text-sm font-semibold tracking-tight sm:text-base">{t("app.title")}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={repo ? "ok" : "idle"}>
-              {repo ? "repo connected" : "repo offline"}
+              {repo ? t("status.repoOn") : t("status.repoOff")}
             </StatusPill>
             <StatusPill tone={audit ? "ok" : "idle"}>
-              {audit ? `inspected ${audit.commitSha.slice(0, 7)}` : "not inspected"}
+              {audit ? `${t("status.inspected")} ${audit.commitSha.slice(0, 7)}` : t("status.notInspected")}
             </StatusPill>
             <StatusPill tone={providerReady ? "ok" : "idle"}>
-              {providerReady ? "provider ready" : "provider idle"}
+              {providerReady ? t("status.providerReady") : t("status.providerIdle")}
             </StatusPill>
-            <StatusPill
-              tone={
-                review?.gate === "APPROVED" ? "ok" : review ? "warn" : "idle"
-              }
+            <StatusPill tone={review?.gate === "APPROVED" ? "ok" : review ? "warn" : "idle"}>
+              {review
+                ? `${t("status.reviewed")} ${review.gate.toLowerCase().replace("_", " ")}`
+                : t("status.notReviewed")}
+            </StatusPill>
+            <button
+              type="button"
+              onClick={toggle}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-secondary/60"
             >
-              {review ? `review ${review.gate.toLowerCase().replace("_", " ")}` : "not reviewed"}
-            </StatusPill>
+              <Languages className="size-3.5 text-primary" />
+              {t("lang.toggle")}
+            </button>
           </div>
-
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
         <section className="panel p-4 sm:p-6">
-          <span className="label-caps">Current project</span>
+          <span className="label-caps">{t("project.current")}</span>
           {repo ? (
             <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Repository" value={repo.fullName} />
-              <Field label="Branch" value={repo.branch} />
+              <Field label={t("project.repository")} value={repo.fullName} />
+              <Field label={t("project.branch")} value={repo.branch} />
               <Field
-                label="Access"
-                value={repo.writeAccess ? "read + write" : "read only"}
+                label={t("project.access")}
+                value={repo.writeAccess ? t("project.rw") : t("project.ro")}
                 tone={repo.writeAccess ? "ok" : "warn"}
               />
-              <Field label="Visibility" value={repo.private ? "private" : "public"} />
+              <Field
+                label={t("project.visibility")}
+                value={repo.private ? t("project.private") : t("project.public")}
+              />
               <div className="sm:col-span-2 lg:col-span-4">
-                <span className="label-caps">Last commit</span>
+                <span className="label-caps">{t("project.lastCommit")}</span>
                 <div className="mt-1 flex items-start gap-2 font-mono text-xs break-words text-muted-foreground">
                   <GitCommitHorizontal className="mt-0.5 size-4 shrink-0 text-primary" />
                   <span>
-                    {repo.lastCommit?.sha} · {repo.lastCommit?.message} —{" "}
-                    {repo.lastCommit?.author}
+                    {repo.lastCommit?.sha} · {repo.lastCommit?.message} — {repo.lastCommit?.author}
                   </span>
                 </div>
               </div>
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">
-              No projects connected yet. Connect a repository below to begin.
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">{t("project.empty")}</p>
           )}
         </section>
+
+        <ActivityFeed />
+
+        <TeamChat
+          provider={providerConfig}
+          context={{
+            repository: repo?.fullName ?? repoConfig.repoUrl,
+            branch: repoConfig.branch,
+            commitSha: audit?.commitSha ?? "",
+            stack: audit
+              ? [
+                  audit.stack.frontend.value,
+                  audit.stack.backend.value,
+                  audit.stack.database.value,
+                  audit.stack.deployment.value,
+                ].filter((v) => v && v !== "UNKNOWN")
+              : [],
+            entryPoints: audit ? audit.entryPoints.map((e) => e.path).slice(0, 10) : [],
+            apiRoutes: audit?.apiMap.length ?? 0,
+            fileCount: audit?.counts.totalFiles ?? 0,
+            planSummary: plan ? `${plan.summary} (${plan.steps.length} steps)` : "",
+            changeSetSummary: changeSet
+              ? `${changeSet.totals.files} files, +${changeSet.totals.additions}/-${changeSet.totals.deletions}`
+              : "",
+            reviewGate: review?.gate ?? "",
+          }}
+          onUseTask={(task) => {
+            setSeedRequest(task);
+            document.getElementById("architect-request")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        />
 
         <ConnectRepository
           config={repoConfig}
@@ -185,7 +237,7 @@ function Dashboard() {
             setPlan(null);
             setChangeSet(null);
             setReview(null);
-            setPlan(null);
+            track("agent.pm", r?.ok ? "act.connected" : "act.connect");
           }}
           tokenConfigured={Boolean(secrets?.github)}
         />
@@ -198,11 +250,11 @@ function Dashboard() {
           onAudit={(a) => {
             setAudit(a);
             setPlan(null);
+            if (a) track("agent.inspector", "act.inspected", undefined, `${a.counts.totalFiles} files`);
           }}
         />
 
         {audit && <RepositoryAuditView audit={audit} />}
-
 
         <ProviderPanel
           config={providerConfig}
@@ -216,10 +268,12 @@ function Dashboard() {
           projectId={audit?.projectId ?? null}
           provider={providerConfig}
           plan={plan}
+          seedRequest={seedRequest}
           onPlan={(p) => {
             setPlan(p);
             setChangeSet(null);
             setReview(null);
+            if (p) track("agent.architect", "act.planned", p.model, `${p.steps.length} steps`);
           }}
         />
 
@@ -230,6 +284,13 @@ function Dashboard() {
           onChangeSet={(c) => {
             setChangeSet(c);
             setReview(null);
+            if (c)
+              track(
+                "agent.frontend",
+                "act.coded",
+                c.model,
+                `${c.totals.files} files +${c.totals.additions}/-${c.totals.deletions}`,
+              );
           }}
         />
 
@@ -237,7 +298,10 @@ function Dashboard() {
           changeSet={changeSet}
           provider={providerConfig}
           result={review}
-          onResult={setReview}
+          onResult={(r) => {
+            setReview(r);
+            if (r) track("agent.reviewer", "act.reviewed", r.reports[0]?.model, r.gate);
+          }}
         />
 
         <GitPanel changeSet={changeSet} reviewGate={review?.gate ?? null} />
@@ -246,19 +310,15 @@ function Dashboard() {
           <section className="panel p-4 sm:p-6">
             <header className="flex items-center gap-2.5">
               <Users className="size-4 text-primary" />
-              <h2 className="text-base font-semibold">Agent team</h2>
+              <h2 className="text-base font-semibold">{t("team.title")}</h2>
             </header>
-            <p className="mt-2 text-sm text-muted-foreground">
-              The Architect plans from the real audit and the Coder implements approved steps
-              against the real files. Only the Git Manager writes to GitHub, and only on a new
-              branch after you approve the diff. No agent activity is simulated here.
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">{t("team.desc")}</p>
 
             <ul className="mt-4 divide-y divide-border">
               {AGENTS.map(([name, perms]) => (
                 <li key={name} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <span className="text-sm">{name}</span>
-                  <span className="font-mono text-[0.68rem] text-muted-foreground">{perms}</span>
+                  <span className="text-sm">{t(name)}</span>
+                  <span className="text-[0.72rem] text-muted-foreground">{t(perms)}</span>
                 </li>
               ))}
             </ul>
@@ -268,45 +328,76 @@ function Dashboard() {
             <section className="panel p-4 sm:p-6">
               <header className="flex items-center gap-2.5">
                 <ListTodo className="size-4 text-primary" />
-                <h2 className="text-base font-semibold">Current task</h2>
+                <h2 className="text-base font-semibold">
+                  {tx("المهمة الحالية", "Current task")}
+                </h2>
               </header>
               <p className="mt-2 text-sm text-muted-foreground">
                 {plan
-                  ? `Plan ${plan.taskId} — ${plan.steps.length} steps proposed for "${plan.request}". ${changeSet ? ` Coder staged ${changeSet.totals.files} file(s): +${changeSet.totals.additions}/-${changeSet.totals.deletions}, staged.` : " Planning only; no code written yet."}`
-                  : "No active task. Generate an Architect plan above, then implement it as a staged diff."}
+                  ? tx(
+                      `الخطة ${plan.taskId} — ${plan.steps.length} خطوات للطلب: "${plan.request}".${changeSet ? ` المبرمج جهّز ${changeSet.totals.files} ملف: +${changeSet.totals.additions}/-${changeSet.totals.deletions} بانتظار موافقتك.` : " تخطيط فقط، لم يُكتب أي كود بعد."}`,
+                      `Plan ${plan.taskId} — ${plan.steps.length} steps for "${plan.request}".${changeSet ? ` Coder staged ${changeSet.totals.files} file(s): +${changeSet.totals.additions}/-${changeSet.totals.deletions}.` : " Planning only; no code written yet."}`,
+                    )
+                  : tx(
+                      "لا توجد مهمة نشطة. تحدّث مع قائد الفريق أعلاه، ثم أنشئ خطة المهندس المعماري.",
+                      "No active task. Talk to the Team Lead above, then generate an Architect plan.",
+                    )}
               </p>
             </section>
 
             <section className="panel p-4 sm:p-6">
               <header className="flex items-center gap-2.5">
                 <Lock className="size-4 text-primary" />
-                <h2 className="text-base font-semibold">Credential security</h2>
+                <h2 className="text-base font-semibold">
+                  {tx("حماية المفاتيح", "Credential security")}
+                </h2>
               </header>
               <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                <li>GitHub token and provider keys are stored as server-side secrets.</li>
-                <li>Secrets are read only inside server handlers, never sent to the browser.</li>
-                <li>No credentials in localStorage, logs, agent prompts or model requests.</li>
-                <li>Provider errors are redacted before being shown.</li>
+                <li>
+                  {tx(
+                    "توكن GitHub ومفاتيح المزوّدين محفوظة على الخادم فقط.",
+                    "GitHub token and provider keys are stored as server-side secrets.",
+                  )}
+                </li>
+                <li>
+                  {tx(
+                    "تُقرأ المفاتيح داخل الخادم فقط ولا تصل إلى المتصفح أبدًا.",
+                    "Secrets are read only inside server handlers, never sent to the browser.",
+                  )}
+                </li>
+                <li>
+                  {tx(
+                    "لا مفاتيح في المتصفح ولا في السجلات ولا في طلبات النماذج.",
+                    "No credentials in localStorage, logs, agent prompts or model requests.",
+                  )}
+                </li>
+                <li>
+                  {tx(
+                    "أخطاء المزوّدين تُنقّى قبل عرضها.",
+                    "Provider errors are redacted before being shown.",
+                  )}
+                </li>
               </ul>
             </section>
           </div>
         </div>
 
         <section className="panel p-4 sm:p-6">
-          <span className="label-caps">Roadmap</span>
+          <span className="label-caps">{t("team.roadmap")}</span>
           <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
             {[
-              ["Phase 1", "Secure connection layer", true],
-              ["Phase 2", "Repository inspection", true],
-              ["Phase 3", "Architect agent (planning)", true],
-              ["Phase 4", "Coder agent (controlled diffs)", true],
-              ["Phase 5", "Git manager (branch, commit, PR)", true],
-              ["Phase 6", "Review board (code · security · QA gate)", true],
-            ].map(([phase, label, done]) => (
-              <li key={phase as string} className="flex items-center gap-2.5">
-                <StatusPill tone={done ? "ok" : "idle"}>{done ? "done" : "planned"}</StatusPill>
+              [tx("المرحلة 1", "Phase 1"), tx("طبقة اتصال آمنة", "Secure connection layer")],
+              [tx("المرحلة 2", "Phase 2"), tx("فحص المستودع", "Repository inspection")],
+              [tx("المرحلة 3", "Phase 3"), tx("المهندس المعماري (تخطيط)", "Architect agent (planning)")],
+              [tx("المرحلة 4", "Phase 4"), tx("المبرمج (تعديلات محكومة)", "Coder agent (controlled diffs)")],
+              [tx("المرحلة 5", "Phase 5"), tx("مدير Git (فرع، commit، PR)", "Git manager (branch, commit, PR)")],
+              [tx("المرحلة 6", "Phase 6"), tx("مجلس المراجعة", "Review board")],
+              [tx("المرحلة 7", "Phase 7"), tx("حوار قائد الفريق وواجهة عربية", "Team Lead chat & Arabic UI")],
+            ].map(([phase, label]) => (
+              <li key={phase} className="flex items-center gap-2.5">
+                <StatusPill tone="ok">{t("team.done")}</StatusPill>
                 <span className="text-muted-foreground">
-                  <span className="text-foreground">{phase as string}</span> — {label as string}
+                  <span className="text-foreground">{phase}</span> — {label}
                 </span>
               </li>
             ))}

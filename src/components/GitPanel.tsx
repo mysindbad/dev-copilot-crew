@@ -5,6 +5,7 @@ import { commitStagedChanges } from "@/lib/git.functions";
 import type { ChangeSet } from "@/lib/coder.types";
 import type { GitCheck, GitEvent, GitCommitReport } from "@/lib/git.types";
 import { StatusPill } from "./StatusPill";
+import { useI18n } from "@/lib/i18n";
 
 function suggestBranch(changeSet: ChangeSet): string {
   const slug = (changeSet.request || changeSet.taskId)
@@ -23,6 +24,7 @@ export function GitPanel({
   changeSet: ChangeSet | null;
   reviewGate?: "APPROVED" | "CHANGES_REQUESTED" | "FAILED" | null;
 }) {
+  const { t } = useI18n();
   const run = useServerFn(commitStagedChanges);
   const [branchName, setBranchName] = useState("");
   const [message, setMessage] = useState("");
@@ -97,7 +99,7 @@ export function GitPanel({
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <GitBranch className="size-4 text-primary" />
-          <h2 className="text-base font-semibold">Git manager</h2>
+          <h2 className="text-base font-semibold">{t("panel.git.title")}</h2>
         </div>
         <StatusPill tone={report ? "ok" : changeSet ? "idle" : "warn"}>
           {report ? "committed to new branch" : changeSet ? "awaiting approval" : "needs a diff"}
