@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { SecretsPayload } from "./user-secrets";
 import type { ReviewBoardResult } from "./review.types";
 
 const Input = z.object({
@@ -27,11 +28,13 @@ const Input = z.object({
   primaryModel: z.string().min(1),
   fallbackProvider: z.enum(["gemini", "openrouter", "none"]).default("none"),
   fallbackModel: z.string().default(""),
+  secrets: SecretsPayload,
 });
 
 export const reviewChangeSet = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ReviewBoardResult> => {
     const { runReviewBoard } = await import("./review.server");
-    return runReviewBoard(data);
+    const { withSecrets } = await import("./secrets.server");
+    return withSecrets(data.secrets, async () => runReviewBoard(data));
   });

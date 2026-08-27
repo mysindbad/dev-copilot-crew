@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { ChangeSet } from "./coder.types";
+import { SecretsPayload } from "./user-secrets";
 import type { GitResult } from "./git.types";
 
 const ChangeSetInput = z.object({
@@ -28,14 +29,18 @@ const GitInput = z.object({
   commitMessage: z.string().default(""),
   openPullRequest: z.boolean().default(true),
   dryRun: z.boolean().default(false),
+  secrets: SecretsPayload,
 });
 
 export const commitStagedChanges = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => GitInput.parse(input))
   .handler(async ({ data }): Promise<GitResult> => {
     const { commitChangeSet } = await import("./git.server");
-    return commitChangeSet({
-      ...data,
-      changeSet: data.changeSet as unknown as ChangeSet,
-    });
+    const { withSecrets } = await import("./secrets.server");
+    return withSecrets(data.secrets, async () =>
+      commitChangeSet({
+        ...data,
+        changeSet: data.changeSet as unknown as ChangeSet,
+      }),
+    );
   });
