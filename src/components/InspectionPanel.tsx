@@ -6,6 +6,7 @@ import { inspectRepository } from "@/lib/inspection.functions";
 import type { InspectionResult, RepositoryAudit } from "@/lib/inspection.types";
 import { StatusPill } from "./StatusPill";
 import { useI18n } from "@/lib/i18n";
+import { arabize } from "@/lib/ar";
 
 export type InspectionPhase =
   | "idle"
@@ -15,11 +16,11 @@ export type InspectionPhase =
   | "failed";
 
 const PHASE_LABEL: Record<InspectionPhase, string> = {
-  idle: "not inspected",
-  connecting: "connecting",
-  fetching: "inspecting repository",
-  completed: "completed",
-  failed: "failed",
+  idle: "ما تفحصش",
+  connecting: "كيتصل",
+  fetching: "كيفحص المستودع",
+  completed: "مكمّل",
+  failed: "فشل",
 };
 
 export function InspectionPanel({
@@ -57,7 +58,7 @@ export function InspectionPanel({
         setPhase("failed");
       }
     } catch {
-      setFatal("The inspection could not be completed. Please retry.");
+      setFatal("ما قدرناش نكملو الفحص. عاود جرّب.");
       setPhase("failed");
     }
   }
@@ -73,7 +74,7 @@ export function InspectionPanel({
           <h2 className="text-base font-semibold">{t("panel.inspect.title")}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {result?.cached && <StatusPill tone="idle">cached (same commit)</StatusPill>}
+          {result?.cached && <StatusPill tone="idle">من الذاكرة (نفس النسخة)</StatusPill>}
           <StatusPill
             tone={phase === "completed" ? "ok" : phase === "failed" ? "fail" : running ? "warn" : "idle"}
           >
@@ -97,17 +98,17 @@ export function InspectionPanel({
         </button>
         {!connected && (
           <span className="font-mono text-xs text-muted-foreground">
-            Test the repository connection first.
+            خصك تختبر الاتصال بالمستودع الأول.
           </span>
         )}
       </div>
 
       {(fatal || (result && !result.ok)) && (
         <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {fatal ?? result?.error}
+          {fatal ?? arabize(result?.error)}
           {result?.errorKind === "rate_limit" && result.rateLimit && (
             <div className="mt-1 font-mono text-xs">
-              rate limit remaining: {result.rateLimit.remaining} · resets {result.rateLimit.resetAt}
+              الطلبات الباقية: {result.rateLimit.remaining} · تتجدد {result.rateLimit.resetAt}
             </div>
           )}
         </div>
@@ -115,7 +116,7 @@ export function InspectionPanel({
 
       {events.length > 0 && (
         <div className="mt-5 space-y-1.5 border-t border-border pt-4">
-          <span className="label-caps">Live activity</span>
+          <span className="label-caps">النشاط المباشر</span>
           {events.map((e, i) => (
             <div key={`${e.label}-${i}`} className="flex items-start gap-2.5 text-sm">
               {e.state === "ok" ? (
@@ -126,9 +127,9 @@ export function InspectionPanel({
                 <X className="mt-0.5 size-4 shrink-0 text-destructive" />
               )}
               <div className="min-w-0">
-                <span className="font-medium">{e.label}</span>
+                <span className="font-medium">{arabize(e.label)}</span>
                 <span className="ml-2 font-mono text-xs break-words text-muted-foreground">
-                  {e.detail}
+                  {arabize(e.detail)}
                 </span>
               </div>
             </div>
@@ -138,7 +139,7 @@ export function InspectionPanel({
 
       {result?.rateLimit && result.ok && (
         <p className="mt-3 font-mono text-[0.68rem] text-muted-foreground">
-          GitHub API calls remaining this hour: {result.rateLimit.remaining}
+          الطلبات الباقية عند GitHub هاد الساعة: {result.rateLimit.remaining}
         </p>
       )}
     </section>
