@@ -17,6 +17,8 @@ import { RepositoryAuditView } from "@/components/RepositoryAuditView";
 import { ArchitectPanel } from "@/components/ArchitectPanel";
 import { CoderPanel } from "@/components/CoderPanel";
 import { GitPanel } from "@/components/GitPanel";
+import { ReviewPanel } from "@/components/ReviewPanel";
+import type { ReviewBoardResult } from "@/lib/review.types";
 import type { ChangeSet } from "@/lib/coder.types";
 import { StatusPill } from "@/components/StatusPill";
 
