@@ -31,6 +31,7 @@ import type { RepoConfig } from "@/components/ConnectRepository";
 import type { ProviderConfig } from "@/components/ProviderPanel";
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
+import { pickModel, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
 
 /**
  * Shared workspace state for the whole app.
@@ -153,6 +154,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   providerRef.current = providerConfig;
   const auditRef = useRef(audit);
   auditRef.current = audit;
+  const providerStatusRef = useRef(providerStatuses);
+  providerStatusRef.current = providerStatuses;
 
   useEffect(() => {
     try {
