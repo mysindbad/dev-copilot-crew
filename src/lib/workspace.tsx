@@ -27,8 +27,19 @@ import type { ArchitectPlan } from "@/lib/architect.types";
 import type { ChangeSet } from "@/lib/coder.types";
 import type { ReviewBoardResult } from "@/lib/review.types";
 import type { GitResult } from "@/lib/git.types";
-import type { RepoConfig } from "@/components/ConnectRepository";
-import type { ProviderConfig } from "@/components/ProviderPanel";
+export interface RepoConfig {
+  repoUrl: string;
+  branch: string;
+}
+
+export interface ProviderConfig {
+  primaryProvider: "gemini" | "openrouter";
+  primaryModel: string;
+  fallbackProvider: "gemini" | "openrouter" | "none";
+  fallbackModel: string;
+  freeOnly: boolean;
+}
+
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
 import { pickModel, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
