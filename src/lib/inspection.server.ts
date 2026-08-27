@@ -78,7 +78,10 @@ async function gh(path: string, token: string | null): Promise<GhResponse> {
 /* ------------------------------------------------------------------ cache */
 
 const cache = new Map<string, RepositoryAudit>();
-const cacheKey = (repo: string, branch: string, sha: string) => `${repo}@${branch}@${sha}`;
+// Bump when the analysis logic changes so stale audits are never served.
+const ANALYSIS_VERSION = "2";
+const cacheKey = (repo: string, branch: string, sha: string) =>
+  `${ANALYSIS_VERSION}@${repo}@${branch}@${sha}`;
 
 export function readCache(repo: string, branch: string, sha: string) {
   return cache.get(cacheKey(repo, branch, sha));
@@ -86,7 +89,7 @@ export function readCache(repo: string, branch: string, sha: string) {
 export function writeCache(audit: RepositoryAudit) {
   // A new commit SHA produces a new key, so stale inspections are never served.
   for (const key of cache.keys()) {
-    if (key.startsWith(`${audit.repository}@${audit.branch}@`)) cache.delete(key);
+    if (key.includes(`@${audit.repository}@${audit.branch}@`)) cache.delete(key);
   }
   cache.set(cacheKey(audit.repository, audit.branch, audit.commitSha), audit);
 }
@@ -639,7 +642,8 @@ export async function inspectRepositoryReal(input: {
   const cached = readCache(repo.full_name, branch.name, commitSha);
   if (cached) {
     push("Cached inspection reused", "ok", `Commit ${commitSha.slice(0, 7)} unchanged since last inspection`);
-    return { ok: true, audit: { ...cached, events: [...cached.events, ...events] }, cached: true, events, rateLimit };
+    const cachedEvents = [...cached.events, events[events.length - 1]!];
+    return { ok: true, audit: { ...cached, events: cachedEvents }, cached: true, events: cachedEvents, rateLimit };
   }
 
   // 3. tree
