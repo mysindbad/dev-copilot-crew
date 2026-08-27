@@ -15,6 +15,8 @@ import { ProviderPanel, type ProviderConfig } from "@/components/ProviderPanel";
 import { InspectionPanel } from "@/components/InspectionPanel";
 import { RepositoryAuditView } from "@/components/RepositoryAuditView";
 import { ArchitectPanel } from "@/components/ArchitectPanel";
+import { CoderPanel } from "@/components/CoderPanel";
+import type { ChangeSet } from "@/lib/coder.types";
 import { StatusPill } from "@/components/StatusPill";
 
 
@@ -71,6 +73,7 @@ function Dashboard() {
   });
   const [repoResult, setRepoResult] = useState<RepoConnectionResult | null>(null);
   const [plan, setPlan] = useState<ArchitectPlan | null>(null);
+  const [changeSet, setChangeSet] = useState<ChangeSet | null>(null);
   const [audit, setAudit] = useState<RepositoryAudit | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
     Partial<Record<"gemini" | "openrouter", ProviderStatus>>
@@ -112,7 +115,7 @@ function Dashboard() {
             <Terminal className="size-5 text-primary" />
             <h1 className="text-sm font-semibold tracking-tight sm:text-base">My AI Dev Team</h1>
             <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[0.62rem] text-muted-foreground">
-              PHASE 3
+              PHASE 4
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -169,6 +172,8 @@ function Dashboard() {
             setRepoResult(r);
             setAudit(null);
             setPlan(null);
+            setChangeSet(null);
+            setPlan(null);
           }}
           tokenConfigured={Boolean(secrets?.github)}
         />
@@ -199,9 +204,18 @@ function Dashboard() {
           projectId={audit?.projectId ?? null}
           provider={providerConfig}
           plan={plan}
-          onPlan={setPlan}
+          onPlan={(p) => {
+            setPlan(p);
+            setChangeSet(null);
+          }}
         />
 
+        <CoderPanel
+          plan={plan}
+          provider={providerConfig}
+          changeSet={changeSet}
+          onChangeSet={setChangeSet}
+        />
 
         <div className="grid gap-5 lg:grid-cols-2">
           <section className="panel p-4 sm:p-6">
@@ -210,10 +224,11 @@ function Dashboard() {
               <h2 className="text-base font-semibold">Agent team</h2>
             </header>
             <p className="mt-2 text-sm text-muted-foreground">
-              Only the Architect Agent is active in Phase 3, and it is read-only: it plans from
-              the real audit. The other agents cannot read, write or commit yet, so no agent
-              activity is simulated here.
+              The Architect plans from the real audit and the Coder implements approved steps
+              against the real files — as a staged diff only. No agent can commit or push, so no
+              agent activity is simulated here.
             </p>
+
             <ul className="mt-4 divide-y divide-border">
               {AGENTS.map(([name, perms]) => (
                 <li key={name} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -232,8 +247,8 @@ function Dashboard() {
               </header>
               <p className="mt-2 text-sm text-muted-foreground">
                 {plan
-                  ? `Plan ${plan.taskId} — ${plan.steps.length} steps proposed for "${plan.request}". Planning only; no code is written.`
-                  : "No active task. Generate an Architect plan above; code execution unlocks in Phase 4."}
+                  ? `Plan ${plan.taskId} — ${plan.steps.length} steps proposed for "${plan.request}". ${changeSet ? ` Coder staged ${changeSet.totals.files} file(s): +${changeSet.totals.additions}/-${changeSet.totals.deletions}, not committed.` : " Planning only; no code written yet."}`
+                  : "No active task. Generate an Architect plan above, then implement it as a staged diff."}
               </p>
             </section>
 
@@ -259,7 +274,7 @@ function Dashboard() {
               ["Phase 1", "Secure connection layer", true],
               ["Phase 2", "Repository inspection", true],
               ["Phase 3", "Architect agent (planning)", true],
-              ["Phase 4", "Agent tool system", false],
+              ["Phase 4", "Coder agent (controlled diffs)", true],
               ["Phase 5", "Project manager orchestration", false],
               ["Phase 6+", "Multi-agent, sandbox, git approval", false],
             ].map(([phase, label, done]) => (
