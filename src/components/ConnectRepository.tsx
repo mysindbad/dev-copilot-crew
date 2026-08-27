@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { GitBranch, Github, Loader2, ShieldCheck, Check, X } from "lucide-react";
+import { GitBranch, Github, Loader2, ShieldCheck, Check, X, TriangleAlert } from "lucide-react";
 import {
   testRepositoryConnection,
   type RepoConnectionResult,
