@@ -207,22 +207,47 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setProviderStatuses((prev) => ({ ...prev, [s.provider]: s }));
   }, []);
 
-  /** Make sure a usable model is selected; discovers one when needed. */
-  const ensureModel = useCallback(async (): Promise<string> => {
-    const cfg = providerRef.current;
-    if (cfg.primaryModel) return cfg.primaryModel;
-    const provider = cfg.primaryProvider;
-    const status = await providerFn({ data: { provider, secrets: getUserSecrets() } });
-    setProviderStatus(status);
-    if (!status.ok || status.models.length === 0) return "";
-    const models = status.models;
-    const pick =
-      provider === "gemini"
-        ? (models.find((m) => /flash/i.test(m) && !/thinking|exp-\d/i.test(m)) ?? models[0]!)
-        : (models.find((m) => m.endsWith(":free")) ?? models[0]!);
-    setProviderConfig({ ...cfg, primaryModel: pick });
-    return pick;
-  }, [providerFn, setProviderStatus]);
+  /**
+   * Pick a usable model automatically.
+   *
+   * Lists the models the provider really offers, prefers the free ones and
+   * scores them against the kind of work. Falls back to the other provider
+   * when the first one has no key or no models.
+   */
+  const ensureModel = useCallback(
+    async (kind: TaskKind = "plan", announce = false): Promise<string> => {
+      const cfg = providerRef.current;
+      const order: ("gemini" | "openrouter")[] =
+        cfg.primaryProvider === "gemini" ? ["gemini", "openrouter"] : ["openrouter", "gemini"];
+
+      for (const provider of order) {
+        let status = providerStatusRef.current[provider];
+        if (!status || !status.ok) {
+          status = await providerFn({ data: { provider, secrets: getUserSecrets() } });
+          setProviderStatus(status);
+        }
+        if (!status.ok || status.models.length === 0) continue;
+        const pick = pickModel(provider, status.models, kind);
+        if (!pick) continue;
+        if (provider !== cfg.primaryProvider || pick.model !== cfg.primaryModel) {
+          setProviderConfig({ ...cfg, primaryProvider: provider, primaryModel: pick.model });
+        }
+        if (announce && pick.model !== cfg.primaryModel) {
+          say({
+            role: "assistant",
+            agent: "مدير المشروع",
+            model: pick.model,
+            content: `${pick.reason} (المزوّد: ${provider === "gemini" ? "Gemini" : "OpenRouter"})`,
+          });
+        }
+        return pick.model;
+      }
+      return "";
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [providerFn, setProviderStatus],
+  );
+
 
   function step(agent: string, action: string, model?: string) {
     const entryId = log({ agent, action, state: "running", ...(model ? { model } : {}) });
