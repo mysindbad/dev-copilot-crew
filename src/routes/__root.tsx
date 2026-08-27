@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { I18nProvider } from "../lib/i18n";
 import { ActivityProvider } from "../lib/activity";
+import { WorkspaceProvider } from "../lib/workspace";
 
 function NotFoundComponent() {
   return (
