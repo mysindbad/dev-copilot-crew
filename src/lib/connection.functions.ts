@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { SecretsPayload } from "./user-secrets";
 
 /**
  * Phase 1 — secure connection layer.
@@ -12,6 +13,7 @@ import { z } from "zod";
 const RepoInput = z.object({
   repoUrl: z.string().min(1),
   branch: z.string().min(1),
+  secrets: SecretsPayload,
 });
 
 export type CheckState = "ok" | "fail" | "skip";
@@ -75,7 +77,9 @@ async function gh(path: string, token: string | null) {
 export const testRepositoryConnection = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => RepoInput.parse(input))
   .handler(async ({ data }): Promise<RepoConnectionResult> => {
-    let token: string | null = process.env["GITHUB_TOKEN"] ?? null;
+    const { withSecrets, getSecret } = await import("./secrets.server");
+    return withSecrets(data.secrets, async () => {
+    let token: string | null = getSecret("GITHUB_TOKEN");
     const checks: Check[] = [];
 
     const parsed = parseRepoUrl(data.repoUrl);
@@ -213,6 +217,7 @@ export const testRepositoryConnection = createServerFn({ method: "POST" })
         },
       },
     };
+    });
   });
 
 export interface ProviderStatus {
@@ -225,13 +230,16 @@ export interface ProviderStatus {
 
 const ProviderInput = z.object({
   provider: z.enum(["gemini", "openrouter"]),
+  secrets: SecretsPayload,
 });
 
 export const testProvider = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ProviderInput.parse(input))
   .handler(async ({ data }): Promise<ProviderStatus> => {
+    const { withSecrets, getSecret } = await import("./secrets.server");
+    return withSecrets(data.secrets, async () => {
     if (data.provider === "gemini") {
-      const key = process.env["GEMINI_API_KEY"];
+      const key = getSecret("GEMINI_API_KEY");
       if (!key)
         return {
           provider: "gemini",
@@ -269,7 +277,7 @@ export const testProvider = createServerFn({ method: "POST" })
       };
     }
 
-    const key = process.env["OPENROUTER_API_KEY"];
+    const key = getSecret("OPENROUTER_API_KEY");
     if (!key)
       return {
         provider: "openrouter",
@@ -311,6 +319,7 @@ export const testProvider = createServerFn({ method: "POST" })
       detail: `Key valid — ${freeModels.length} free models available`,
       models: freeModels,
     };
+    });
   });
 
 export const getSecretsStatus = createServerFn({ method: "GET" }).handler(async () => ({
