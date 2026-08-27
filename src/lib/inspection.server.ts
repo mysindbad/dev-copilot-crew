@@ -684,9 +684,25 @@ export async function inspectRepositoryReal(input: {
     .slice(0, 10)
     .map((f) => ({ f, p: { score: 60, reason: "API/backend module" } }));
 
-  const toRead = [...candidates, ...extraApi]
+  // Fill the remaining budget with the primary source files of the largest
+  // source directories, so small repos are not audited on config files alone.
+  const chosen = new Set([...candidates, ...extraApi].map((c) => c.f.path));
+  const extraSource = files
+    .filter(
+      (f) =>
+        !chosen.has(f.path) &&
+        (f.category === "SOURCE" || f.category === "FRONTEND") &&
+        !/^(examples?|samples?|benchmarks?|docs?)\//.test(f.path) &&
+        f.size <= MAX_FILE_BYTES,
+    )
+    .sort((a, b) => a.path.split("/").length - b.path.split("/").length)
+    .slice(0, 12)
+    .map((f) => ({ f, p: { score: 50, reason: "Primary source module" } }));
+
+  const toRead = [...candidates, ...extraApi, ...extraSource]
     .filter((c) => c.f.size <= MAX_FILE_BYTES)
     .slice(0, MAX_FILES_READ);
+
 
   const contents = new Map<string, string>();
   for (const c of toRead) {
