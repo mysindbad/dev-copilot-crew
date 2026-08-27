@@ -16,7 +16,13 @@ function suggestBranch(changeSet: ChangeSet): string {
   return `ai-dev-team/${slug || "change"}-${changeSet.changeSetId.slice(0, 8)}`;
 }
 
-export function GitPanel({ changeSet }: { changeSet: ChangeSet | null }) {
+export function GitPanel({
+  changeSet,
+  reviewGate,
+}: {
+  changeSet: ChangeSet | null;
+  reviewGate?: "APPROVED" | "CHANGES_REQUESTED" | "FAILED" | null;
+}) {
   const run = useServerFn(commitStagedChanges);
   const [branchName, setBranchName] = useState("");
   const [message, setMessage] = useState("");
