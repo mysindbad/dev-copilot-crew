@@ -183,13 +183,22 @@ export function GitPanel({
             </button>
             <button
               onClick={() => submit(false)}
-              disabled={busy !== null || !approved || Boolean(report)}
+              disabled={
+                busy !== null || !approved || Boolean(report) || reviewGate !== "APPROVED"
+              }
               className="inline-flex items-center gap-2 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy === "commit" && <Loader2 className="size-4 animate-spin" />}
               Commit to new branch
             </button>
-            {!approved && !report && (
+            {reviewGate !== "APPROVED" && !report && (
+              <span className="font-mono text-[0.7rem] text-warning">
+                {reviewGate
+                  ? `review board: ${reviewGate.toLowerCase().replace("_", " ")} — commit blocked`
+                  : "review board must approve this diff before any write"}
+              </span>
+            )}
+            {!approved && !report && reviewGate === "APPROVED" && (
               <span className="font-mono text-[0.7rem] text-muted-foreground">
                 approval required before any write
               </span>
