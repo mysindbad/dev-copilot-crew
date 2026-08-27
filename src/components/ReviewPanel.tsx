@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getUserSecrets } from "@/lib/user-secrets";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, ScanEye, ShieldAlert, TestTube2, FileSearch } from "lucide-react";
 import { reviewChangeSet } from "@/lib/review.functions";
@@ -57,6 +58,7 @@ export function ReviewPanel({
     try {
       const res = await run({
         data: {
+          secrets: getUserSecrets(),
           changeSetId: changeSet.changeSetId,
           taskId: changeSet.taskId,
           request: changeSet.request,

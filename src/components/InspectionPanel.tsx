@@ -1,3 +1,4 @@
+import { getUserSecrets } from "@/lib/user-secrets";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, Loader2, Radar, TriangleAlert, X } from "lucide-react";
@@ -47,7 +48,7 @@ export function InspectionPanel({
     onAudit(null);
     try {
       setPhase("fetching");
-      const res = await run({ data: { repoUrl, branch } });
+      const res = await run({ data: { repoUrl, branch, secrets: getUserSecrets() } });
       setResult(res);
       if (res.ok && res.audit) {
         onAudit(res.audit);

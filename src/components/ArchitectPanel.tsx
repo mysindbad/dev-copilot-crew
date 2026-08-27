@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getUserSecrets } from "@/lib/user-secrets";
 import { useServerFn } from "@tanstack/react-start";
 import { DraftingCompass, Loader2 } from "lucide-react";
 import { generateArchitecturePlan } from "@/lib/architect.functions";
@@ -42,6 +43,7 @@ export function ArchitectPanel({
     try {
       const res = await run({
         data: {
+          secrets: getUserSecrets(),
           projectId,
           request: request.trim(),
           primaryProvider: provider.primaryProvider,

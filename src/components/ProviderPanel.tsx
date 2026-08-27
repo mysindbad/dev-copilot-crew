@@ -1,3 +1,4 @@
+import { getUserSecrets } from "@/lib/user-secrets";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Cpu, Loader2, ShieldCheck } from "lucide-react";
@@ -34,7 +35,7 @@ export function ProviderPanel({
   async function check(provider: "gemini" | "openrouter") {
     setPending(provider);
     try {
-      onStatus(await run({ data: { provider } }));
+      onStatus(await run({ data: { provider, secrets: getUserSecrets() } }));
     } catch {
       onStatus({
         provider,
