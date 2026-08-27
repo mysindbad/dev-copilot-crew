@@ -9,6 +9,7 @@ import {
 import { StatusPill } from "./StatusPill";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
+import { arabize } from "@/lib/ar";
 
 export interface RepoConfig {
   repoUrl: string;
@@ -41,7 +42,7 @@ export function ConnectRepository({
       const res = await run({ data: { ...config, secrets: getUserSecrets() } });
       onResult(res);
     } catch {
-      setFatal("The connection check could not be completed. Please retry.");
+      setFatal("ما قدرناش نكملو اختبار الاتصال. عاود جرّب.");
     } finally {
       setPending(false);
     }
@@ -57,14 +58,14 @@ export function ConnectRepository({
           <h2 className="text-base font-semibold">{t("panel.connect.title")}</h2>
         </div>
         <StatusPill tone={result?.ok ? "ok" : result ? "fail" : "idle"}>
-          {result?.ok ? "connected" : result ? "failed" : "not connected"}
+          {result?.ok ? "متصل" : result ? "فشل" : "غير متصل"}
         </StatusPill>
       </header>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className="label-caps" htmlFor="repoUrl">
-            Repository URL
+            رابط المستودع
           </label>
           <input
             id="repoUrl"
@@ -77,7 +78,7 @@ export function ConnectRepository({
         </div>
         <div>
           <label className="label-caps" htmlFor="branch">
-            Branch
+            الفرع
           </label>
           <div className="relative mt-1.5">
             <GitBranch className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
@@ -92,13 +93,13 @@ export function ConnectRepository({
           </div>
         </div>
         <div>
-          <span className="label-caps">GitHub token</span>
+          <span className="label-caps">توكن GitHub</span>
           <div className="mt-1.5 flex h-[38px] items-center gap-2 rounded-md border border-border bg-secondary/50 px-3 text-sm">
             <ShieldCheck
               className={cn("size-4", tokenConfigured ? "text-success" : "text-muted-foreground")}
             />
             <span className="font-mono text-xs text-muted-foreground">
-              {tokenConfigured ? "stored server-side ••••••" : "not configured"}
+              {tokenConfigured ? "محفوظ ••••••" : "غير مُعرَّف"}
             </span>
           </div>
         </div>
@@ -111,10 +112,10 @@ export function ConnectRepository({
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-          {pending ? "Verifying…" : "Test connection"}
+          {pending ? "كنتأكدو…" : "اختبر الاتصال"}
         </button>
         <span className="self-center font-mono text-xs text-muted-foreground">
-          Real GitHub API calls — nothing is simulated.
+          اتصال حقيقي بـ GitHub — ما كاين حتى شي بيانات وهمية.
         </span>
       </div>
 
@@ -137,16 +138,16 @@ export function ConnectRepository({
               )}
 
               <div className="min-w-0">
-                <span className="font-medium">{c.label}</span>
+                <span className="font-medium">{arabize(c.label)}</span>
                 <span className="ml-2 font-mono text-xs break-words text-muted-foreground">
-                  {c.detail}
+                  {arabize(c.detail)}
                 </span>
               </div>
             </div>
           ))}
           {result.error && (
             <p className="pt-1 text-sm text-destructive">
-              {result.error} Check the repository, branch and token permissions, then retry.
+              {arabize(result.error)} — تحقّق من المستودع والفرع وصلاحيات التوكن، ثم عاود.
             </p>
           )}
         </div>
