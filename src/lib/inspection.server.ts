@@ -351,6 +351,9 @@ function detectApis(files: ClassifiedFile[], contents: Map<string, string>): Api
   }
   // 2. Express-style route registrations in read files
   for (const [path, src] of contents) {
+    // Documentation shows illustrative snippets; they are not real endpoints.
+    if (/\.(md|mdx|rst|txt)$/i.test(path)) continue;
+
     for (const m of src.matchAll(/\b(?:app|router)\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)["'`]/g)) {
       out.push({
         method: m[1]!.toUpperCase(),
