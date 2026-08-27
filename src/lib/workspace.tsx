@@ -536,6 +536,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
       const model = await ensureModel("chat", false);
       const cfg = providerRef.current;
+      if (!model) {
+        setChatBusy(false);
+        say({
+          role: "assistant",
+          agent: "مدير المشروع",
+          content: `باش نقدر نهضر معاك خاصني مفتاح ذكاء اصطناعي.\nمفتاح مجاني من Google Gemini: ${KEY_SOURCES.gemini}\nولا OpenRouter (فيه نماذج :free): ${KEY_SOURCES.openrouter}\nدخّلو ف«الإعدادات» (الأيقونة فوق) ونبداو.`,
+        });
+        return;
+      }
       const a = step("مدير المشروع", "يجاوب على سؤالك", model);
       try {
         const res = await chatFn({
