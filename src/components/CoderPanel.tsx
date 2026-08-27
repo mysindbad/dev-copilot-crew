@@ -7,6 +7,7 @@ import type { ChangeSet, CoderAttempt, CoderEvent, StagedFile } from "@/lib/code
 import type { ProviderConfig } from "./ProviderPanel";
 import { StatusPill } from "./StatusPill";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export function CoderPanel({
   plan,
@@ -19,6 +20,7 @@ export function CoderPanel({
   changeSet: ChangeSet | null;
   onChangeSet: (c: ChangeSet | null) => void;
 }) {
+  const { t } = useI18n();
   const run = useServerFn(implementPlan);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function CoderPanel({
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <Code2 className="size-4 text-primary" />
-          <h2 className="text-base font-semibold">Coder agent</h2>
+          <h2 className="text-base font-semibold">{t("panel.coder.title")}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={changeSet ? "ok" : plan ? "idle" : "warn"}>
@@ -94,8 +96,7 @@ export function CoderPanel({
       </header>
 
       <p className="mt-2 text-sm text-muted-foreground">
-        Applies the approved plan to the real files at the audited commit and returns a controlled
-        change set with a real git-style diff. Nothing is written, branched, committed or pushed.
+{t("panel.coder.desc")}
       </p>
 
       {plan ? (

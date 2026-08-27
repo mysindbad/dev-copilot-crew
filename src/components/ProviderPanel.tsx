@@ -4,6 +4,7 @@ import { Cpu, Loader2, ShieldCheck } from "lucide-react";
 import { testProvider, type ProviderStatus } from "@/lib/connection.functions";
 import { StatusPill } from "./StatusPill";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export interface ProviderConfig {
   primaryProvider: "gemini" | "openrouter";
@@ -26,6 +27,7 @@ export function ProviderPanel({
   statuses: Partial<Record<"gemini" | "openrouter", ProviderStatus>>;
   onStatus: (s: ProviderStatus) => void;
 }) {
+  const { t } = useI18n();
   const run = useServerFn(testProvider);
   const [pending, setPending] = useState<string | null>(null);
 
@@ -59,7 +61,7 @@ export function ProviderPanel({
     <section className="panel p-4 sm:p-6">
       <header className="flex items-center gap-2.5">
         <Cpu className="size-4 text-primary" />
-        <h2 className="text-base font-semibold">AI providers</h2>
+        <h2 className="text-base font-semibold">{t("panel.providers.title")}</h2>
       </header>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">

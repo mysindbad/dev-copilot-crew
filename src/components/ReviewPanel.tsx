@@ -7,6 +7,7 @@ import type { ReviewBoardResult, ReviewerId, ReviewerReport } from "@/lib/review
 import type { ProviderConfig } from "./ProviderPanel";
 import { StatusPill } from "./StatusPill";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 const REVIEWERS: { id: ReviewerId; name: string; icon: typeof ScanEye }[] = [
   { id: "code", name: "Code Reviewer", icon: FileSearch },
@@ -32,6 +33,7 @@ export function ReviewPanel({
   result: ReviewBoardResult | null;
   onResult: (r: ReviewBoardResult | null) => void;
 }) {
+  const { t } = useI18n();
   const run = useServerFn(reviewChangeSet);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export function ReviewPanel({
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <ScanEye className="size-4 text-primary" />
-          <h2 className="text-base font-semibold">Review board</h2>
+          <h2 className="text-base font-semibold">{t("panel.review.title")}</h2>
         </div>
         <StatusPill
           tone={

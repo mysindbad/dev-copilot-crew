@@ -7,6 +7,7 @@ import {
 } from "@/lib/connection.functions";
 import { StatusPill } from "./StatusPill";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export interface RepoConfig {
   repoUrl: string;
@@ -26,6 +27,7 @@ export function ConnectRepository({
   onResult: (r: RepoConnectionResult | null) => void;
   tokenConfigured: boolean;
 }) {
+  const { t } = useI18n();
   const run = useServerFn(testRepositoryConnection);
   const [pending, setPending] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export function ConnectRepository({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <Github className="size-4 text-primary" />
-          <h2 className="text-base font-semibold">Connect your repository</h2>
+          <h2 className="text-base font-semibold">{t("panel.connect.title")}</h2>
         </div>
         <StatusPill tone={result?.ok ? "ok" : result ? "fail" : "idle"}>
           {result?.ok ? "connected" : result ? "failed" : "not connected"}
