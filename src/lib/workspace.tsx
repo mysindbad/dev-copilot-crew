@@ -31,6 +31,7 @@ import type { RepoConfig } from "@/components/ConnectRepository";
 import type { ProviderConfig } from "@/components/ProviderPanel";
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
+import { pickModel, KEY_SOURCES, type AgentRole } from "@/lib/model-picker";
 
 /**
  * Shared workspace state for the whole app.
@@ -153,6 +154,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   providerRef.current = providerConfig;
   const auditRef = useRef(audit);
   auditRef.current = audit;
+  const providerStatusRef = useRef(providerStatuses);
+  providerStatusRef.current = providerStatuses;
+  const modelCache = useRef<
+    Record<string, { provider: "gemini" | "openrouter"; model: string; note: string }>
+  >({});
 
   useEffect(() => {
     try {
@@ -198,6 +204,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     gemini: Boolean(serverSecrets.gemini || userSecrets.GEMINI_API_KEY),
     openrouter: Boolean(serverSecrets.openrouter || userSecrets.OPENROUTER_API_KEY),
   };
+
+  const keyRef = useRef(keyStatus);
+  keyRef.current = keyStatus;
 
   function say(entry: Omit<ChatEntry, "id">) {
     setMessages((prev) => [...prev, { ...entry, id: id() }]);
@@ -277,15 +286,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      const model = await ensureModel();
-      if (!model) {
+      const planPick = await ensureModel("plan");
+      const codePick = (await ensureModel("code")) ?? planPick;
+      const reviewPick = (await ensureModel("review")) ?? planPick;
+      if (!planPick || !codePick || !reviewPick) {
+        say({ role: "assistant", agent: "مدير المشروع", content: missingKeyMessage() });
+        return;
+      }
+      if (planPick.note) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content:
-            "ما قدرتش نبدا: ما كاينش نموذج ذكاء اصطناعي جاهز. زيد مفتاح Gemini ولا OpenRouter من الإعدادات.",
+          content: `${planPick.note} (اختيار تلقائي من النماذج المتاحة عندك)`,
         });
-        return;
       }
 
       setPipeline({ running: true, phase: "inspect", note: "" });
@@ -324,13 +337,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         // 2) Architect plan.
         setPipeline({ running: true, phase: "plan", note: "" });
-        const sPlan = step("المهندس المعماري", "إنشاء الخطة التقنية", model);
+        const sPlan = step("المهندس المعماري", "إنشاء الخطة التقنية", planPick.model);
         const planRes = await architectFn({
           data: {
             projectId: currentAudit.projectId,
             request: task,
-            primaryProvider: cfg.primaryProvider,
-            primaryModel: model,
+            primaryProvider: planPick.provider,
+            primaryModel: planPick.model,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
@@ -354,13 +367,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         // 3) Coder.
         setPipeline({ running: true, phase: "code", note: "" });
-        const sCode = step("المبرمج", "كتابة التعديلات على الملفات", model);
+        const sCode = step("المبرمج", "كتابة التعديلات على الملفات", codePick.model);
         const coderRes = await coderFn({
           data: {
             plan: newPlan,
             stepOrders: newPlan.steps.map((st) => st.order),
-            primaryProvider: cfg.primaryProvider,
-            primaryModel: model,
+            primaryProvider: codePick.provider,
+            primaryModel: codePick.model,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
@@ -385,7 +398,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         // 4) Review board.
         setPipeline({ running: true, phase: "review", note: "" });
-        const sRev = step("مجلس المراجعة", "مراجعة الكود والأمان والجودة", model);
+        const sRev = step("مجلس المراجعة", "مراجعة الكود والأمان والجودة", reviewPick.model);
         const revRes = await reviewFn({
           data: {
             changeSetId: cs.changeSetId,
@@ -404,8 +417,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               diffText: f.diff.map((l) => l.text).join("\n"),
             })),
             reviewers: ["code", "security", "qa"] as ("code" | "security" | "qa")[],
-            primaryProvider: cfg.primaryProvider,
-            primaryModel: model,
+            primaryProvider: reviewPick.provider,
+            primaryModel: reviewPick.model,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
@@ -418,12 +431,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
         sRev.ok(
           `${revRes.gate === "APPROVED" ? "موافقة" : "مطلوب تعديلات"} · ${revRes.totals.blockers} مانع`,
-          revRes.reports[0]?.model ?? model,
+          revRes.reports[0]?.model ?? reviewPick.model,
         );
         say({
           role: "assistant",
           agent: "مجلس المراجعة",
-          model: revRes.reports[0]?.model ?? model,
+          model: revRes.reports[0]?.model ?? reviewPick.model,
           content:
             revRes.gate === "APPROVED"
               ? `المراجعة دازت بنجاح ✅ (${revRes.totals.majors} ملاحظة مهمة، ${revRes.totals.minors} بسيطة).`
@@ -537,9 +550,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const model = await ensureModel();
+      const chatPick = await ensureModel("chat");
+      if (!chatPick) {
+        setChatBusy(false);
+        say({ role: "assistant", agent: "مدير المشروع", content: missingKeyMessage() });
+        return;
+      }
       const cfg = providerRef.current;
-      const a = step("مدير المشروع", "يجاوب على سؤالك", model);
+      const a = step("مدير المشروع", "يجاوب على سؤالك", chatPick.model);
       try {
         const res = await chatFn({
           data: {
@@ -566,8 +584,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 : "",
               reviewGate: review?.gate ?? "",
             },
-            primaryProvider: cfg.primaryProvider,
-            primaryModel: model,
+            primaryProvider: chatPick.provider,
+            primaryModel: chatPick.model,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
