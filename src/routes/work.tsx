@@ -109,13 +109,30 @@ function WorkPage() {
                   <span className="font-mono text-xs" dir="ltr">
                     {f.path}
                   </span>{" "}
-                  <span className="text-muted-foreground">— {arabize(f.action)}</span>
+                  <span className="text-muted-foreground">
+                    — {arabize(f.action)} (+{f.additions} / −{f.deletions})
+                  </span>
                 </summary>
                 <pre
                   dir="ltr"
                   className="max-h-80 overflow-auto border-t border-border bg-background/60 p-3 text-left font-mono text-xs leading-relaxed"
                 >
-                  {f.diff}
+                  {f.diff.map((line, i) => (
+                    <div
+                      key={i}
+                      className={
+                        line.kind === "add"
+                          ? "text-success"
+                          : line.kind === "del"
+                            ? "text-destructive"
+                            : line.kind === "hunk"
+                              ? "text-primary"
+                              : "text-muted-foreground"
+                      }
+                    >
+                      {line.text}
+                    </div>
+                  ))}
                 </pre>
               </details>
             ))}
@@ -135,12 +152,26 @@ function WorkPage() {
               (review.gate === "APPROVED" ? "text-success" : "text-warning")
             }
           >
-            {review.gate === "APPROVED" ? "موافق — يمكن الإرسال" : "مطلوب تعديلات قبل الإرسال"}
+            {review.gate === "APPROVED"
+              ? "موافق — يمكن الإرسال"
+              : review.gate === "CHANGES_REQUESTED"
+                ? "مطلوب تعديلات قبل الإرسال"
+                : "المراجعة ما كملاتش"}
           </p>
           <div className="mt-3 space-y-3">
-            {review.reviews.map((r) => (
-              <div key={r.role} className="rounded-md border border-border p-3">
-                <div className="text-sm font-medium">{arabize(r.role)}</div>
+            {review.reports.map((r) => (
+              <div key={r.reviewer} className="rounded-md border border-border p-3">
+                <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                  {arabize(r.name)}
+                  {r.model && (
+                    <span
+                      className="rounded border border-border px-1.5 py-0.5 font-mono text-[0.7rem] text-muted-foreground"
+                      dir="ltr"
+                    >
+                      {r.model}
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-sm text-muted-foreground">{r.summary}</p>
                 <ul className="mt-2 space-y-1.5">
                   {r.findings.map((f, i) => (
@@ -148,7 +179,8 @@ function WorkPage() {
                       <span className="rounded border border-border px-1.5 py-0.5 text-[0.7rem] text-muted-foreground">
                         {SEVERITY[f.severity] ?? f.severity}
                       </span>{" "}
-                      {f.message}
+                      <span className="font-medium">{f.title}</span>{" "}
+                      <span className="text-muted-foreground">— {f.detail}</span>
                     </li>
                   ))}
                 </ul>
@@ -165,21 +197,25 @@ function WorkPage() {
             <h2 className="text-base font-semibold">GitHub</h2>
           </div>
           <ul className="mt-2 space-y-1.5 text-sm">
-            {gitResult.steps.map((s, i) => (
-              <li key={i} className={s.ok ? "text-foreground" : "text-destructive"}>
-                {s.ok ? "✓" : "✗"} {arabize(s.label)} — {arabize(s.detail)}
+            {gitResult.events.map((e, i) => (
+              <li key={i} className={e.state === "fail" ? "text-destructive" : "text-foreground"}>
+                {e.state === "ok" ? "✓" : e.state === "warn" ? "!" : "✗"} {arabize(e.label)} —{" "}
+                {arabize(e.detail)}
               </li>
             ))}
           </ul>
-          {gitResult.pullRequestUrl && (
+          {gitResult.error && (
+            <p className="mt-2 text-sm text-destructive">{arabize(gitResult.error)}</p>
+          )}
+          {gitResult.report?.pullRequest && (
             <a
-              href={gitResult.pullRequestUrl}
+              href={gitResult.report.pullRequest.url}
               target="_blank"
               rel="noreferrer"
               dir="ltr"
               className="mt-3 inline-block font-mono text-xs text-primary hover:underline"
             >
-              {gitResult.pullRequestUrl}
+              {gitResult.report.pullRequest.url}
             </a>
           )}
         </section>
