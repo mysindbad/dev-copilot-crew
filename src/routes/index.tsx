@@ -17,6 +17,8 @@ import { RepositoryAuditView } from "@/components/RepositoryAuditView";
 import { ArchitectPanel } from "@/components/ArchitectPanel";
 import { CoderPanel } from "@/components/CoderPanel";
 import { GitPanel } from "@/components/GitPanel";
+import { ReviewPanel } from "@/components/ReviewPanel";
+import type { ReviewBoardResult } from "@/lib/review.types";
 import type { ChangeSet } from "@/lib/coder.types";
 import { StatusPill } from "@/components/StatusPill";
 
@@ -75,6 +77,7 @@ function Dashboard() {
   const [repoResult, setRepoResult] = useState<RepoConnectionResult | null>(null);
   const [plan, setPlan] = useState<ArchitectPlan | null>(null);
   const [changeSet, setChangeSet] = useState<ChangeSet | null>(null);
+  const [review, setReview] = useState<ReviewBoardResult | null>(null);
   const [audit, setAudit] = useState<RepositoryAudit | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
     Partial<Record<"gemini" | "openrouter", ProviderStatus>>
@@ -116,7 +119,7 @@ function Dashboard() {
             <Terminal className="size-5 text-primary" />
             <h1 className="text-sm font-semibold tracking-tight sm:text-base">My AI Dev Team</h1>
             <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[0.62rem] text-muted-foreground">
-              PHASE 5
+              PHASE 6
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -128,6 +131,13 @@ function Dashboard() {
             </StatusPill>
             <StatusPill tone={providerReady ? "ok" : "idle"}>
               {providerReady ? "provider ready" : "provider idle"}
+            </StatusPill>
+            <StatusPill
+              tone={
+                review?.gate === "APPROVED" ? "ok" : review ? "warn" : "idle"
+              }
+            >
+              {review ? `review ${review.gate.toLowerCase().replace("_", " ")}` : "not reviewed"}
             </StatusPill>
           </div>
 
@@ -174,6 +184,7 @@ function Dashboard() {
             setAudit(null);
             setPlan(null);
             setChangeSet(null);
+            setReview(null);
             setPlan(null);
           }}
           tokenConfigured={Boolean(secrets?.github)}
@@ -208,6 +219,7 @@ function Dashboard() {
           onPlan={(p) => {
             setPlan(p);
             setChangeSet(null);
+            setReview(null);
           }}
         />
 
@@ -215,10 +227,20 @@ function Dashboard() {
           plan={plan}
           provider={providerConfig}
           changeSet={changeSet}
-          onChangeSet={setChangeSet}
+          onChangeSet={(c) => {
+            setChangeSet(c);
+            setReview(null);
+          }}
         />
 
-        <GitPanel changeSet={changeSet} />
+        <ReviewPanel
+          changeSet={changeSet}
+          provider={providerConfig}
+          result={review}
+          onResult={setReview}
+        />
+
+        <GitPanel changeSet={changeSet} reviewGate={review?.gate ?? null} />
 
         <div className="grid gap-5 lg:grid-cols-2">
           <section className="panel p-4 sm:p-6">
@@ -279,7 +301,7 @@ function Dashboard() {
               ["Phase 3", "Architect agent (planning)", true],
               ["Phase 4", "Coder agent (controlled diffs)", true],
               ["Phase 5", "Git manager (branch, commit, PR)", true],
-              ["Phase 6+", "Multi-agent orchestration & sandbox testing", false],
+              ["Phase 6", "Review board (code · security · QA gate)", true],
             ].map(([phase, label, done]) => (
               <li key={phase as string} className="flex items-center gap-2.5">
                 <StatusPill tone={done ? "ok" : "idle"}>{done ? "done" : "planned"}</StatusPill>
