@@ -16,6 +16,7 @@ import { InspectionPanel } from "@/components/InspectionPanel";
 import { RepositoryAuditView } from "@/components/RepositoryAuditView";
 import { ArchitectPanel } from "@/components/ArchitectPanel";
 import { CoderPanel } from "@/components/CoderPanel";
+import { GitPanel } from "@/components/GitPanel";
 import type { ChangeSet } from "@/lib/coder.types";
 import { StatusPill } from "@/components/StatusPill";
 
@@ -115,7 +116,7 @@ function Dashboard() {
             <Terminal className="size-5 text-primary" />
             <h1 className="text-sm font-semibold tracking-tight sm:text-base">My AI Dev Team</h1>
             <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[0.62rem] text-muted-foreground">
-              PHASE 4
+              PHASE 5
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -217,6 +218,8 @@ function Dashboard() {
           onChangeSet={setChangeSet}
         />
 
+        <GitPanel changeSet={changeSet} />
+
         <div className="grid gap-5 lg:grid-cols-2">
           <section className="panel p-4 sm:p-6">
             <header className="flex items-center gap-2.5">
@@ -225,8 +228,8 @@ function Dashboard() {
             </header>
             <p className="mt-2 text-sm text-muted-foreground">
               The Architect plans from the real audit and the Coder implements approved steps
-              against the real files — as a staged diff only. No agent can commit or push, so no
-              agent activity is simulated here.
+              against the real files. Only the Git Manager writes to GitHub, and only on a new
+              branch after you approve the diff. No agent activity is simulated here.
             </p>
 
             <ul className="mt-4 divide-y divide-border">
@@ -247,7 +250,7 @@ function Dashboard() {
               </header>
               <p className="mt-2 text-sm text-muted-foreground">
                 {plan
-                  ? `Plan ${plan.taskId} — ${plan.steps.length} steps proposed for "${plan.request}". ${changeSet ? ` Coder staged ${changeSet.totals.files} file(s): +${changeSet.totals.additions}/-${changeSet.totals.deletions}, not committed.` : " Planning only; no code written yet."}`
+                  ? `Plan ${plan.taskId} — ${plan.steps.length} steps proposed for "${plan.request}". ${changeSet ? ` Coder staged ${changeSet.totals.files} file(s): +${changeSet.totals.additions}/-${changeSet.totals.deletions}, staged.` : " Planning only; no code written yet."}`
                   : "No active task. Generate an Architect plan above, then implement it as a staged diff."}
               </p>
             </section>
@@ -275,8 +278,8 @@ function Dashboard() {
               ["Phase 2", "Repository inspection", true],
               ["Phase 3", "Architect agent (planning)", true],
               ["Phase 4", "Coder agent (controlled diffs)", true],
-              ["Phase 5", "Project manager orchestration", false],
-              ["Phase 6+", "Multi-agent, sandbox, git approval", false],
+              ["Phase 5", "Git manager (branch, commit, PR)", true],
+              ["Phase 6+", "Multi-agent orchestration & sandbox testing", false],
             ].map(([phase, label, done]) => (
               <li key={phase as string} className="flex items-center gap-2.5">
                 <StatusPill tone={done ? "ok" : "idle"}>{done ? "done" : "planned"}</StatusPill>
