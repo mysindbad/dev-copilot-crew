@@ -27,10 +27,22 @@ import type { ArchitectPlan } from "@/lib/architect.types";
 import type { ChangeSet } from "@/lib/coder.types";
 import type { ReviewBoardResult } from "@/lib/review.types";
 import type { GitResult } from "@/lib/git.types";
-import type { RepoConfig } from "@/components/ConnectRepository";
-import type { ProviderConfig } from "@/components/ProviderPanel";
+export interface RepoConfig {
+  repoUrl: string;
+  branch: string;
+}
+
+export interface ProviderConfig {
+  primaryProvider: "gemini" | "openrouter";
+  primaryModel: string;
+  fallbackProvider: "gemini" | "openrouter" | "none";
+  fallbackModel: string;
+  freeOnly: boolean;
+}
+
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
+import { pickModel, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
 
 /**
  * Shared workspace state for the whole app.
@@ -153,6 +165,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   providerRef.current = providerConfig;
   const auditRef = useRef(audit);
   auditRef.current = audit;
+  const providerStatusRef = useRef(providerStatuses);
+  providerStatusRef.current = providerStatuses;
 
   useEffect(() => {
     try {
@@ -207,22 +221,47 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setProviderStatuses((prev) => ({ ...prev, [s.provider]: s }));
   }, []);
 
-  /** Make sure a usable model is selected; discovers one when needed. */
-  const ensureModel = useCallback(async (): Promise<string> => {
-    const cfg = providerRef.current;
-    if (cfg.primaryModel) return cfg.primaryModel;
-    const provider = cfg.primaryProvider;
-    const status = await providerFn({ data: { provider, secrets: getUserSecrets() } });
-    setProviderStatus(status);
-    if (!status.ok || status.models.length === 0) return "";
-    const models = status.models;
-    const pick =
-      provider === "gemini"
-        ? (models.find((m) => /flash/i.test(m) && !/thinking|exp-\d/i.test(m)) ?? models[0]!)
-        : (models.find((m) => m.endsWith(":free")) ?? models[0]!);
-    setProviderConfig({ ...cfg, primaryModel: pick });
-    return pick;
-  }, [providerFn, setProviderStatus]);
+  /**
+   * Pick a usable model automatically.
+   *
+   * Lists the models the provider really offers, prefers the free ones and
+   * scores them against the kind of work. Falls back to the other provider
+   * when the first one has no key or no models.
+   */
+  const ensureModel = useCallback(
+    async (kind: TaskKind = "plan", announce = false): Promise<string> => {
+      const cfg = providerRef.current;
+      const order: ("gemini" | "openrouter")[] =
+        cfg.primaryProvider === "gemini" ? ["gemini", "openrouter"] : ["openrouter", "gemini"];
+
+      for (const provider of order) {
+        let status = providerStatusRef.current[provider];
+        if (!status || !status.ok) {
+          status = await providerFn({ data: { provider, secrets: getUserSecrets() } });
+          setProviderStatus(status);
+        }
+        if (!status.ok || status.models.length === 0) continue;
+        const pick = pickModel(provider, status.models, kind);
+        if (!pick) continue;
+        if (provider !== cfg.primaryProvider || pick.model !== cfg.primaryModel) {
+          setProviderConfig({ ...cfg, primaryProvider: provider, primaryModel: pick.model });
+        }
+        if (announce && pick.model !== cfg.primaryModel) {
+          say({
+            role: "assistant",
+            agent: "مدير المشروع",
+            model: pick.model,
+            content: `${pick.reason} (المزوّد: ${provider === "gemini" ? "Gemini" : "OpenRouter"})`,
+          });
+        }
+        return pick.model;
+      }
+      return "";
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [providerFn, setProviderStatus],
+  );
+
 
   function step(agent: string, action: string, model?: string) {
     const entryId = log({ agent, action, state: "running", ...(model ? { model } : {}) });
@@ -247,13 +286,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      const model = await ensureModel();
+      const model = await ensureModel(taskKind(task), true);
       if (!model) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content:
-            "ما قدرتش نبدا: ما كاينش نموذج ذكاء اصطناعي جاهز. زيد مفتاح Gemini ولا OpenRouter من الإعدادات.",
+          content: `ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام.\nجيب مفتاح مجاني من Gemini: ${KEY_SOURCES.gemini}\nولا من OpenRouter (فيه نماذج free): ${KEY_SOURCES.openrouter}\nومن بعد دخّلو ف«الإعدادات».`,
         });
         return;
       }
@@ -507,8 +545,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const model = await ensureModel();
+      const model = await ensureModel("chat", false);
       const cfg = providerRef.current;
+      if (!model) {
+        setChatBusy(false);
+        say({
+          role: "assistant",
+          agent: "مدير المشروع",
+          content: `باش نقدر نهضر معاك خاصني مفتاح ذكاء اصطناعي.\nمفتاح مجاني من Google Gemini: ${KEY_SOURCES.gemini}\nولا OpenRouter (فيه نماذج :free): ${KEY_SOURCES.openrouter}\nدخّلو ف«الإعدادات» (الأيقونة فوق) ونبداو.`,
+        });
+        return;
+      }
       const a = step("مدير المشروع", "يجاوب على سؤالك", model);
       try {
         const res = await chatFn({

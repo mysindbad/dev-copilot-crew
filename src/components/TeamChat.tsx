@@ -1,228 +1,144 @@
-import { useState } from "react";
-import { getUserSecrets } from "@/lib/user-secrets";
-import { useServerFn } from "@tanstack/react-start";
-import { MessagesSquare, Loader2, Send, Sparkles, ArrowRight } from "lucide-react";
-import { teamLeadChat } from "@/lib/chat.functions";
-import type { ChatMessage, ChatTurn } from "@/lib/chat.types";
-import type { ProviderConfig } from "./ProviderPanel";
-import { StatusPill } from "./StatusPill";
-import { useI18n } from "@/lib/i18n";
-import { useActivity } from "@/lib/activity";
+import { useEffect, useRef, useState } from "react";
+import { Send, Loader2, MessagesSquare, Sparkles } from "lucide-react";
+import { useWorkspace } from "@/lib/workspace";
 
-interface Bubble extends ChatMessage {
-  turn?: ChatTurn;
-}
+/**
+ * Conversation with the Project Manager agent.
+ *
+ * The human describes the idea; the manager asks questions, then hands the
+ * agreed task to the rest of the team automatically when told to.
+ */
+export function TeamChat() {
+  const { messages, chatBusy, sendMessage, clearChat, pipeline, runPipeline } = useWorkspace();
+  const [text, setText] = useState("");
+  const endRef = useRef<HTMLDivElement>(null);
 
-export function TeamChat({
-  provider,
-  context,
-  onUseTask,
-}: {
-  provider: ProviderConfig;
-  context: {
-    repository: string;
-    branch: string;
-    commitSha: string;
-    stack: string[];
-    entryPoints: string[];
-    apiRoutes: number;
-    fileCount: number;
-    planSummary: string;
-    changeSetSummary: string;
-    reviewGate: string;
-  };
-  onUseTask: (task: string) => void;
-}) {
-  const { t, lang } = useI18n();
-  const { log, finish } = useActivity();
-  const run = useServerFn(teamLeadChat);
-  const [messages, setMessages] = useState<Bubble[]>([]);
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length, chatBusy]);
 
-  const ready = Boolean(provider.primaryModel);
+  const lastSuggested = [...messages].reverse().find((m) => m.suggestedTask)?.suggestedTask;
 
-  async function send() {
-    const text = input.trim();
-    if (!text || busy || !ready) return;
-    const history: Bubble[] = [...messages, { role: "user", content: text }];
-    setMessages(history);
-    setInput("");
-    setBusy(true);
-    setError(null);
-
-    const activityId = log({
-      agent: t("agent.lead"),
-      action: t("act.chat"),
-      model: provider.primaryModel,
-      state: "running",
-    });
-
-    try {
-      const res = await run({
-        data: {
-          secrets: getUserSecrets(),
-          messages: history.map((m) => ({ role: m.role, content: m.content })),
-          language: lang,
-          context,
-          primaryProvider: provider.primaryProvider,
-          primaryModel: provider.primaryModel,
-          fallbackProvider: provider.fallbackProvider,
-          fallbackModel: provider.fallbackModel,
-        },
-      });
-      if (res.ok && res.turn) {
-        setMessages([...history, { role: "assistant", content: res.turn.reply, turn: res.turn }]);
-        finish(activityId, {
-          state: "done",
-          action: t("act.chatDone"),
-          model: res.turn.model,
-          detail: `${res.turn.ms} ms`,
-        });
-      } else {
-        setError(res.error ?? "unknown error");
-        finish(activityId, { state: "failed", detail: res.error ?? "" });
-      }
-    } catch {
-      setError("network error");
-      finish(activityId, { state: "failed" });
-    } finally {
-      setBusy(false);
-    }
+  async function submit() {
+    const value = text.trim();
+    if (!value) return;
+    setText("");
+    await sendMessage(value);
   }
 
   return (
-    <section className="panel p-4 sm:p-6">
+    <section className="panel flex min-h-[60vh] flex-col p-4 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <MessagesSquare className="size-4 text-primary" />
-          <h2 className="text-base font-semibold">{t("chat.title")}</h2>
+          <h2 className="text-base font-semibold">مدير المشروع</h2>
         </div>
-        <div className="flex items-center gap-2">
-          {messages.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setMessages([])}
-              className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {t("chat.clear")}
-            </button>
-          )}
-          <StatusPill tone={ready ? "ok" : "warn"}>
-            {ready ? provider.primaryModel : t("status.providerIdle")}
-          </StatusPill>
-        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={clearChat}
+            className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            مسح المحادثة
+          </button>
+        )}
       </header>
 
-      <p className="mt-2 text-sm text-muted-foreground">{t("chat.desc")}</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        قول لي الفكرة ديالك بلغتك. غادي نسولك شي أسئلة، ومنين نتفاهمو قول لي «عطيها للمهندس» وأنا
+        نمشي بيها للفريق كامل: المهندس، المبرمج، المراجعة، ومن بعد GitHub.
+      </p>
 
-      <div className="mt-4 max-h-[26rem] space-y-3 overflow-y-auto pe-1">
+      <div className="mt-4 flex-1 space-y-3 overflow-y-auto pe-1">
         {messages.length === 0 && (
-          <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
-            {t("chat.empty")}
+          <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+            ابدا الحديث: مثلا «بغيت نزيد صفحة تسجيل الدخول للمشروع ديالي».
           </p>
         )}
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-            <div
-              className={
-                "max-w-[92%] rounded-lg border px-3.5 py-2.5 text-sm leading-relaxed " +
-                (m.role === "user"
-                  ? "border-primary/30 bg-primary/10"
-                  : "border-border bg-surface/70")
-              }
-            >
-              <div className="mb-1 flex flex-wrap items-center gap-2 text-[0.66rem] text-muted-foreground">
-                <span className="font-semibold text-foreground">
-                  {m.role === "user" ? t("chat.you") : t("agent.lead")}
+
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={
+              m.role === "user"
+                ? "ms-auto max-w-[85%] rounded-lg bg-primary/15 px-3.5 py-2.5"
+                : "me-auto max-w-[92%] rounded-lg border border-border bg-surface/60 px-3.5 py-2.5"
+            }
+          >
+            <div className="flex flex-wrap items-center gap-2 text-[0.7rem] text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {m.role === "user" ? "أنت" : (m.agent ?? "الفريق")}
+              </span>
+              {m.model && (
+                <span className="rounded border border-border px-1.5 py-0.5 font-mono" dir="ltr">
+                  {m.model}
                 </span>
-                {m.turn && (
-                  <span className="rounded border border-border px-1.5 py-0.5 font-mono">
-                    {m.turn.model} · {m.turn.ms} ms
-                    {m.turn.usedFallback ? " · fallback" : ""}
-                  </span>
-                )}
-              </div>
-              <p className="whitespace-pre-wrap">{m.content}</p>
-
-              {m.turn && m.turn.questions.length > 0 && (
-                <div className="mt-3 rounded-md border border-border bg-background/40 p-2.5">
-                  <span className="label-caps">{t("chat.questions")}</span>
-                  <ul className="mt-1.5 space-y-1">
-                    {m.turn.questions.map((q, qi) => (
-                      <li key={qi} className="flex gap-2 text-xs text-muted-foreground">
-                        <ArrowRight className="mt-0.5 size-3 shrink-0 text-primary" />
-                        <span>{q}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {m.turn?.suggestedTask && (
-                <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-2.5">
-                  <span className="label-caps">{t("chat.suggestedTask")}</span>
-                  <p className="mt-1 font-mono text-xs break-words">{m.turn.suggestedTask}</p>
-                  <button
-                    type="button"
-                    onClick={() => onUseTask(m.turn!.suggestedTask)}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
-                  >
-                    <Sparkles className="size-3.5" />
-                    {t("chat.useTask")}
-                  </button>
-                </div>
-              )}
-
-              {m.turn?.nextStep && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  <span className="label-caps">{t("chat.nextStep")}</span> — {m.turn.nextStep}
-                </p>
               )}
             </div>
+            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">{m.content}</p>
+
+            {m.questions && m.questions.length > 0 && (
+              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                {m.questions.map((q, i) => (
+                  <li key={i}>• {q}</li>
+                ))}
+              </ul>
+            )}
+
+            {m.suggestedTask && (
+              <div className="mt-2.5 rounded-md border border-border bg-background/50 p-2.5">
+                <div className="text-[0.7rem] text-muted-foreground">المهمة المقترحة</div>
+                <div className="mt-1 text-sm">{m.suggestedTask}</div>
+                <button
+                  disabled={pipeline.running}
+                  onClick={() => runPipeline(m.suggestedTask!)}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  <Sparkles className="size-3.5" />
+                  سلّمها للفريق
+                </button>
+              </div>
+            )}
           </div>
         ))}
-        {busy && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin text-primary" />
-            {t("chat.thinking")}
-            <span className="font-mono">{provider.primaryModel}</span>
+
+        {(chatBusy || pipeline.running) && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin text-primary" />
+            {chatBusy ? "المدير كيفكر…" : "الفريق خدّام…"}
           </div>
         )}
+        <div ref={endRef} />
       </div>
 
-      {error && (
-        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 font-mono text-xs break-words text-destructive">
-          {error}
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-end gap-2">
+      <div className="mt-4 flex items-end gap-2">
         <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              void send();
+              void submit();
             }
           }}
           rows={2}
-          disabled={!ready}
-          placeholder={ready ? t("chat.placeholder") : t("chat.needProvider")}
-          className="min-w-0 flex-1 rounded-md border border-border bg-input px-3 py-2 text-sm outline-none focus:border-ring disabled:opacity-60"
+          placeholder="اكتب هنا…"
+          className="flex-1 resize-none rounded-md border border-border bg-input px-3 py-2 text-sm outline-none focus:border-ring"
         />
         <button
-          type="button"
-          onClick={() => void send()}
-          disabled={!ready || busy || input.trim().length === 0}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          onClick={submit}
+          disabled={chatBusy || !text.trim()}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-3.5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          {t("chat.send")}
+          <Send className="size-4" />
+          أرسل
         </button>
       </div>
+
+      {lastSuggested && !pipeline.running && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          نصيحة: كتب «عطيها للمهندس» وأنا نبدا الخدمة أوتوماتيكيًا.
+        </p>
+      )}
     </section>
   );
 }
