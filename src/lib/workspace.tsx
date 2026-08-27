@@ -275,13 +275,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      const model = await ensureModel();
+      const model = await ensureModel(taskKind(task), true);
       if (!model) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content:
-            "ما قدرتش نبدا: ما كاينش نموذج ذكاء اصطناعي جاهز. زيد مفتاح Gemini ولا OpenRouter من الإعدادات.",
+          content: `ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام.\nجيب مفتاح مجاني من Gemini: ${KEY_SOURCES.gemini}\nولا من OpenRouter (فيه نماذج free): ${KEY_SOURCES.openrouter}\nومن بعد دخّلو ف«الإعدادات».`,
         });
         return;
       }
@@ -535,7 +534,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const model = await ensureModel();
+      const model = await ensureModel("chat", false);
       const cfg = providerRef.current;
       const a = step("مدير المشروع", "يجاوب على سؤالك", model);
       try {
