@@ -329,8 +329,9 @@ export function SettingsDrawer() {
         <p className="mt-4 text-xs text-muted-foreground">
           وضع «مجاني 100%» مفعّل: التطبيق كيخدم غير بمفاتيحك المجانية وما كيستهلك حتى رصيد.
           مفاتيحك: GitHub {keyStatus.github ? "✓" : "✗"} · Gemini {keyStatus.gemini ? "✓" : "✗"} ·
-          OpenRouter {keyStatus.openrouter ? "✓" : "✗"}.
-          {!keyStatus.gemini && !keyStatus.openrouter
+          OpenRouter {keyStatus.openrouter ? "✓" : "✗"} · Groq {keyStatus.groq ? "✓" : "✗"} ·
+          Mistral {keyStatus.mistral ? "✓" : "✗"} · HF {keyStatus.huggingface ? "✓" : "✗"}.
+          {!keyStatus.gemini && !keyStatus.openrouter && !keyStatus.groq && !keyStatus.mistral && !keyStatus.huggingface
             ? " زيد مفتاح مجاني من الروابط فوق باش يخدم الفريق."
             : ""}
         </p>
