@@ -189,16 +189,16 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
 
   const blocked: { path: string; reason: string }[] = [];
   const targets: string[] = [];
+  /** Every plan path that passes the guardrails, even beyond the eager budget. */
+  const allowed: string[] = [];
   for (const path of wanted) {
     const problem = pathIsAcceptable(path);
     if (problem) {
       blocked.push({ path, reason: problem });
       continue;
     }
-    if (targets.length >= MAX_TARGET_FILES) {
-      blocked.push({ path, reason: `file budget reached (${MAX_TARGET_FILES} files per run)` });
-      continue;
-    }
+    allowed.push(path);
+    if (targets.length >= MAX_TARGET_FILES) continue;
     targets.push(path);
   }
   if (targets.length === 0) {
