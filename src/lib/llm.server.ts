@@ -96,6 +96,8 @@ async function callLlmOnce(
         signal: controller.signal,
         body: JSON.stringify({
           model,
+          temperature,
+
           messages: [
             { role: "system", content: system },
             { role: "user", content: user },
