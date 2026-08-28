@@ -266,10 +266,14 @@ export function SettingsDrawer() {
         </section>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          الذكاء الاصطناعي المدمج {keyStatus.lovable ? "✓ خدّام بلا مفتاح" : "✗"} — ما خاصك حتى
-          مفتاح باش تخدم. مفاتيحك (اختيارية): GitHub {keyStatus.github ? "✓" : "✗"} · Gemini{" "}
-          {keyStatus.gemini ? "✓" : "✗"} · OpenRouter {keyStatus.openrouter ? "✓" : "✗"}.
+          وضع «مجاني 100%» مفعّل: التطبيق كيخدم غير بمفاتيحك المجانية وما كيستهلك حتى رصيد.
+          مفاتيحك: GitHub {keyStatus.github ? "✓" : "✗"} · Gemini {keyStatus.gemini ? "✓" : "✗"} ·
+          OpenRouter {keyStatus.openrouter ? "✓" : "✗"}.
+          {!keyStatus.gemini && !keyStatus.openrouter
+            ? " زيد مفتاح مجاني من الروابط فوق باش يخدم الفريق."
+            : ""}
         </p>
+
 
         <button
           onClick={() => setSettingsOpen(false)}
