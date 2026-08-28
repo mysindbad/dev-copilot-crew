@@ -28,6 +28,7 @@ const Input = z.object({
   }),
   primaryProvider: z.enum(["gemini", "openrouter"]),
   primaryModel: z.string().default(""),
+  backupModels: z.array(z.string().min(1)).max(4).default([]),
   fallbackProvider: z.enum(["gemini", "openrouter", "none"]).default("none"),
   fallbackModel: z.string().default(""),
   secrets: SecretsPayload,
