@@ -78,7 +78,7 @@ export function rankModels(
     .map((r) => ({
       model: r.model,
       free: r.free,
-      reason: `اخترت «${r.model}» لأنه ${r.free ? "موسوم كمجاني عند المزوّد" : "متاح ومناسب"} لـ${kindAr}.`,
+      reason: `اخترت «${r.model}» لأنه ${provider === "lovable" ? "مدمج فالتطبيق وما كيحتاجش مفتاح" : r.free ? "موسوم كمجاني عند المزوّد" : "متاح ومناسب"} لـ${kindAr}.`,
     }));
 }
 
