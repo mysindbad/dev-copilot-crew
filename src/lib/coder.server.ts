@@ -224,6 +224,19 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
   }
   for (const b of blocked) current.delete(b.path);
   const readable = targets.filter((t) => current.has(t));
+  let lazyReads = 0;
+  /** Reads an approved-but-not-yet-loaded plan file the model asked to change. */
+  const admitLazily = async (path: string): Promise<boolean> => {
+    if (!allowed.includes(path)) return false;
+    if (lazyReads >= MAX_LAZY_FILES) return false;
+    lazyReads += 1;
+    const read = await readFileAtCommit(parsed.owner, parsed.repo, path, plan.commitSha);
+    if (read.ok && typeof read.content === "string") current.set(path, read.content);
+    else if (read.error === "not found at this commit") current.set(path, null);
+    else return false;
+    readable.push(path);
+    return true;
+  };
   if (readable.length === 0) {
     return {
       ok: false,
