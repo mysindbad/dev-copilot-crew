@@ -346,4 +346,5 @@ export const getSecretsStatus = createServerFn({ method: "GET" }).handler(async 
   github: Boolean(process.env["GITHUB_TOKEN"]),
   gemini: Boolean(process.env["GEMINI_API_KEY"]),
   openrouter: Boolean(process.env["OPENROUTER_API_KEY"]),
+  lovable: Boolean(process.env["LOVABLE_API_KEY"]),
 }));

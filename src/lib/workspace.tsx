@@ -125,7 +125,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const [repoConfig, setRepoConfig] = useState<RepoConfig>({ repoUrl: "", branch: "main" });
   const [providerConfig, setProviderConfig] = useState<ProviderConfig>({
-    primaryProvider: "gemini",
+    primaryProvider: "lovable",
     primaryModel: "",
     fallbackProvider: "none",
     fallbackModel: "",
@@ -240,8 +240,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const ensureModel = useCallback(
     async (kind: TaskKind = "plan", announce = false): Promise<string> => {
       const cfg = providerRef.current;
-      const order: ("gemini" | "openrouter" | "lovable")[] =
-        cfg.primaryProvider === "gemini" ? ["gemini", "openrouter"] : ["openrouter", "gemini"];
+      const all: ("gemini" | "openrouter" | "lovable")[] = ["lovable", "gemini", "openrouter"];
+      const order = [
+        cfg.primaryProvider,
+        ...all.filter((p) => p !== cfg.primaryProvider),
+      ] as ("gemini" | "openrouter" | "lovable")[];
 
       for (const provider of order) {
         let status = providerStatusRef.current[provider];
@@ -262,7 +265,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             role: "assistant",
             agent: "مدير المشروع",
             model: pick.model,
-            content: `${pick.reason} (المزوّد: ${provider === "gemini" ? "Gemini" : "OpenRouter"})`,
+            content: `${pick.reason} (المزوّد: ${provider === "gemini" ? "Gemini" : provider === "openrouter" ? "OpenRouter" : "الذكاء المدمج"})`,
           });
         }
         return pick.model;
