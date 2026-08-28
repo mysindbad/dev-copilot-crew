@@ -23,7 +23,10 @@ import type {
  */
 
 const MAX_FILE_BYTES = 180_000;
-const MAX_FILES_READ = 30;
+// A small/medium repository must be inspected as a whole, not sampled and then
+// described as "comprehensive". Very large repositories remain bounded and are
+// explicitly marked as partial in the audit contract.
+const MAX_FILES_READ = 120;
 const LARGE_REPO_FILES = 4000;
 
 const UNK: StackDetection = { value: "UNKNOWN", evidence: [] };
@@ -692,24 +695,29 @@ export async function inspectRepositoryReal(input: {
     .slice(0, 10)
     .map((f) => ({ f, p: { score: 60, reason: "API/backend module" } }));
 
-  // Fill the remaining budget with the primary source files of the largest
-  // source directories, so small repos are not audited on config files alone.
+  // Fill the remaining budget with every inspectable text file. Priority files
+  // still come first, but a 76-file project is no longer silently sampled.
   const chosen = new Set([...candidates, ...extraApi].map((c) => c.f.path));
   const extraSource = files
     .filter(
       (f) =>
         !chosen.has(f.path) &&
-        (f.category === "SOURCE" || f.category === "FRONTEND") &&
-        !/^(examples?|samples?|benchmarks?|docs?)\//.test(f.path) &&
+        f.category !== "GENERATED" &&
+        f.category !== "ASSET" &&
         f.size <= MAX_FILE_BYTES,
     )
-    .sort((a, b) => a.path.split("/").length - b.path.split("/").length)
-    .slice(0, 12)
-    .map((f) => ({ f, p: { score: 50, reason: "Primary source module" } }));
+    .sort((a, b) => a.path.split("/").length - b.path.split("/").length || a.path.localeCompare(b.path))
+    .map((f) => ({ f, p: { score: 40, reason: "Repository text file" } }));
 
   const toRead = [...candidates, ...extraApi, ...extraSource]
     .filter((c) => c.f.size <= MAX_FILE_BYTES)
     .slice(0, MAX_FILES_READ);
+  const inspectableFiles = files.filter(
+    (file) =>
+      file.category !== "GENERATED" &&
+      file.category !== "ASSET" &&
+      file.size <= MAX_FILE_BYTES,
+  ).length;
 
 
   const contents = new Map<string, string>();
@@ -732,7 +740,12 @@ export async function inspectRepositoryReal(input: {
       /* skip unreadable file, inspection continues */
     }
   }
-  push("Relevant files read", "ok", `${contents.size} of ${files.length} files inspected`);
+  const coverageComplete = !tree.truncated && contents.size === inspectableFiles;
+  push(
+    "Relevant files read",
+    coverageComplete ? "ok" : "warn",
+    `${contents.size} of ${inspectableFiles} inspectable text files read (${files.length} total files)`,
+  );
 
   // 5. analysis
   const stack = detectStack(files, contents, repo.language);
@@ -805,7 +818,10 @@ export async function inspectRepositoryReal(input: {
   if (!tests.hasTests) risks.push("No test files exist in the repository tree — changes cannot be verified automatically.");
   if (stack.deployment.value === "UNKNOWN") risks.push("No deployment configuration was found; release process is undocumented.");
   if (stack.packageManager.value.includes("assumed")) risks.push("No lockfile is committed — dependency installs are not reproducible.");
-  if (largeRepository) risks.push("Repository is large; this inspection covers prioritised files only.");
+  if (!coverageComplete)
+    risks.push(
+      `Inspection is partial: ${contents.size} of ${inspectableFiles} inspectable text files were read. Unread files were not audited.`,
+    );
   const clientEnv = envReferences.filter((e) => e.referencedBy.some((f) => /^(src\/)?(components|pages|app|client)\//.test(f)) && !/^(VITE_|NEXT_PUBLIC_|PUBLIC_)/.test(e.name));
   if (clientEnv.length)
     risks.push(`Non-public environment variables referenced from client-layer files: ${clientEnv.map((e) => e.name).join(", ")}.`);
@@ -818,7 +834,10 @@ export async function inspectRepositoryReal(input: {
   if (buildCommand === "UNKNOWN") unknowns.push("Build command");
   if (!apiMap.length) unknowns.push("API surface (no endpoints detected)");
   if (tree.truncated) unknowns.push("Full file tree (GitHub truncated the response)");
-  unknowns.push(`Contents of ${files.length - contents.size} files not read (outside the prioritised inspection budget)`);
+  if (!coverageComplete)
+    unknowns.push(
+      `Contents of ${Math.max(0, inspectableFiles - contents.size)} inspectable text files not read (inspection limit or GitHub failure)`,
+    );
 
   const base = {
     projectId: `${repo.full_name}#${branch.name}`,
@@ -831,7 +850,15 @@ export async function inspectRepositoryReal(input: {
     private: repo.private,
     truncatedTree: tree.truncated,
     largeRepository,
-    counts: { totalFiles: files.length, inspectedFiles: contents.size, byCategory },
+    counts: {
+      totalFiles: files.length,
+      inspectableFiles,
+      inspectedFiles: contents.size,
+      skippedFiles: files.length - contents.size,
+      byCategory,
+    },
+    coverageComplete,
+    inspectedPaths: [...contents.keys()].sort(),
     stack,
     entryPoints,
     importantFiles,

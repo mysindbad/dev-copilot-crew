@@ -55,6 +55,10 @@ const RULES: [RegExp, string][] = [
   [/^(Gemini|OpenRouter) 429:[\s\S]*$/i, "تجاوزنا حد الاستعمال مؤقتًا. استنى شوية وعاود."],
   [/^(Gemini|OpenRouter) 524:[\s\S]*$/i, "النموذج تأخر بزاف وتوقفت المحاولة تلقائيًا."],
   [/^All configured model routes failed\.[\s\S]*$/i, "فشلت النماذج المتاحة، والتفاصيل مبينة تحت كل محاولة."],
+  [
+    /^A comprehensive audit cannot start because repository coverage is partial \((\d+) of (\d+) inspectable text files read\)\. Re-run inspection or narrow the task\.$/i,
+    "ما نقدرش نسميه فحص شامل: تقراو غير $1 من أصل $2 ملف نصي قابل للفحص. عاود الفحص أو حدّد جزءًا أصغر من المشروع.",
+  ],
   [/^Authenticated as (.+)$/i, "متصل بحساب $1"],
   [/^Token is read-only.*$/i, "التوكن للقراءة فقط — لا يمكن الإرسال إلى GitHub"],
   [/^No token stored.*$/i, "لا يوجد توكن — سنقرأ المستودع كزائر عمومي فقط"],

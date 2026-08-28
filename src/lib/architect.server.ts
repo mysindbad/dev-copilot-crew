@@ -78,6 +78,8 @@ function buildFacts(audit: RepositoryAudit): string[] {
     `Build command: ${audit.buildCommand || "UNKNOWN"}`,
     `Dev command: ${audit.devCommand || "UNKNOWN"}`,
     `Files inspected: ${audit.counts.inspectedFiles} of ${audit.counts.totalFiles}`,
+    `Inspectable text files read: ${audit.counts.inspectedFiles} of ${audit.counts.inspectableFiles}`,
+    `Inspection coverage: ${audit.coverageComplete ? "COMPLETE" : "PARTIAL — never claim a comprehensive audit"}`,
     `Tests: ${audit.tests.hasTests ? audit.tests.frameworks.join(", ") || "present" : "none detected"}`,
   ];
   return facts;
@@ -161,6 +163,18 @@ export async function generatePlanReal(args: ArchitectArgs): Promise<ArchitectRe
     };
   }
 
+  const comprehensiveRequest = /comprehensive|entire repository|all (?:errors|bugs|issues)|every (?:error|bug|issue)|فحص شامل|جميع الأخطاء|كل الأخطاء/i.test(
+    args.request,
+  );
+  if (comprehensiveRequest && !memory.COVERAGE_COMPLETE) {
+    return {
+      ok: false,
+      error: `A comprehensive audit cannot start because repository coverage is partial (${memory.INSPECTED_FILES} of ${memory.INSPECTABLE_FILES} inspectable text files read). Re-run inspection or narrow the task.`,
+      errorKind: "incomplete_audit",
+      attempts,
+    };
+  }
+
   // The memory entry mirrors the audit; rebuild the subset the prompt needs.
   const audit = {
     repository: memory.REPOSITORY,
@@ -184,12 +198,20 @@ export async function generatePlanReal(args: ArchitectArgs): Promise<ArchitectRe
     },
     buildCommand: memory.BUILD_COMMAND,
     devCommand: "UNKNOWN",
-    counts: { totalFiles: 0, inspectedFiles: memory.IMPORTANT_FILES.length, byCategory: {} },
+    counts: {
+      totalFiles: memory.TOTAL_FILES,
+      inspectableFiles: memory.INSPECTABLE_FILES,
+      inspectedFiles: memory.INSPECTED_FILES,
+      skippedFiles: Math.max(0, memory.TOTAL_FILES - memory.INSPECTED_FILES),
+      byCategory: {},
+    },
+    coverageComplete: memory.COVERAGE_COMPLETE,
+    inspectedPaths: memory.INSPECTED_PATHS,
     risks: memory.KNOWN_RISKS,
     unknowns: memory.UNKNOWNS,
   } as unknown as RepositoryAudit;
 
-  const knownPaths = new Set(memory.IMPORTANT_FILES.concat(memory.ENTRY_POINTS.map((e) => e.path)));
+  const knownPaths = new Set(memory.INSPECTED_PATHS.concat(memory.ENTRY_POINTS.map((e) => e.path)));
   const prompt = buildPrompt(audit, args.request);
 
   const routes: { provider: ProviderId; model: string }[] = [];

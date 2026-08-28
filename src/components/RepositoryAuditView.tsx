@@ -46,40 +46,42 @@ export function RepositoryAuditView({ audit }: { audit: RepositoryAudit }) {
       <section className="panel p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <span className="label-caps">Repository overview</span>
+            <span className="label-caps">نظرة عامة على المستودع</span>
             <h2 className="mt-1 font-mono text-lg break-words">{audit.repository}</h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            <StatusPill tone="ok">inspected</StatusPill>
-            <StatusPill tone={audit.private ? "warn" : "idle"}>
-              {audit.private ? "private" : "public"}
+            <StatusPill tone={audit.coverageComplete ? "ok" : "warn"}>
+              {audit.coverageComplete ? "فحص كامل" : "فحص جزئي"}
             </StatusPill>
-            {audit.largeRepository && <StatusPill tone="warn">large repo</StatusPill>}
+            <StatusPill tone={audit.private ? "warn" : "idle"}>
+              {audit.private ? "خاص" : "عام"}
+            </StatusPill>
+            {audit.largeRepository && <StatusPill tone="warn">مستودع كبير</StatusPill>}
           </div>
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Detection label="Branch" value={audit.branch} evidence={[]} />
-          <Detection label="Inspected commit" value={audit.commitSha.slice(0, 12)} evidence={[]} />
+          <Detection label="الفرع" value={audit.branch} evidence={[]} />
+          <Detection label="النسخة المفحوصة" value={audit.commitSha.slice(0, 12)} evidence={[]} />
           <Detection
-            label="Files"
-            value={`${audit.counts.inspectedFiles} read / ${audit.counts.totalFiles} total`}
+            label="الملفات"
+            value={`${audit.counts.inspectedFiles} مقروء من ${audit.counts.inspectableFiles} قابل للفحص`}
             evidence={[]}
           />
           <Detection
-            label="Inspected at"
+            label="وقت الفحص"
             value={new Date(audit.inspectedAt).toLocaleString()}
             evidence={[]}
           />
           <div className="sm:col-span-2 lg:col-span-4">
-            <span className="label-caps">Commit message</span>
+            <span className="label-caps">رسالة النسخة</span>
             <p className="mt-1 font-mono text-xs break-words text-muted-foreground">
               {audit.commitMessage || "UNKNOWN"}
             </p>
           </div>
         </div>
-        {audit.largeRepository && (
+        {!audit.coverageComplete && (
           <p className="mt-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
-            Repository is large. Inspecting the most relevant files first.
+            هذا فحص جزئي فقط. لم نقرأ {audit.counts.inspectableFiles - audit.counts.inspectedFiles} ملفًا نصيًا قابلًا للفحص، ولن ننسب إليها أي نتائج.
           </p>
         )}
       </section>
