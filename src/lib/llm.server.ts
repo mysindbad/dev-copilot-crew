@@ -44,12 +44,17 @@ export async function callLlm(
 ): Promise<LlmCallResult> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await callLlmOnce(provider, model, system, user);
-    const transient = res.status === 503 || res.status === 429 || (res.status ?? 0) >= 500;
+    const transient =
+      res.status === 503 || res.status === 429 || res.status === 524 || (res.status ?? 0) >= 500;
     if (res.ok || !transient || attempt === 1) return res;
     await sleep(4000);
   }
   return { ok: false, error: "unreachable" };
 }
+
+/** Abort a provider call that hangs, so the caller can move to a backup model. */
+const CALL_TIMEOUT_MS = 45_000;
+
 
 async function callLlmOnce(
   provider: ProviderId,
