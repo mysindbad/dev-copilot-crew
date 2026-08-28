@@ -100,10 +100,10 @@ interface Ctx {
   changeSet: ChangeSet | null;
   review: ReviewBoardResult | null;
   gitResult: GitResult | null;
-  providerStatuses: Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>;
+  providerStatuses: Partial<Record<ProviderId, ProviderStatus>>;
   setProviderStatus: (s: ProviderStatus) => void;
-  keyStatus: { github: boolean; gemini: boolean; openrouter: boolean; lovable: boolean };
-  serverSecrets: { github: boolean; gemini: boolean; openrouter: boolean; lovable: boolean };
+  keyStatus: Record<string, boolean>;
+  serverSecrets: Record<string, boolean>;
   refreshSecrets: () => void;
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
