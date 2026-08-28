@@ -6,7 +6,20 @@
  * It never writes files, never commits, and never receives credentials.
  */
 
-export type ProviderId = "gemini" | "openrouter" | "lovable";
+/** All AI providers the app can route to. OpenAI-compatible ones share one call path. */
+export const PROVIDER_IDS = [
+  "gemini",
+  "openrouter",
+  "lovable",
+  "groq",
+  "mistral",
+  "huggingface",
+] as const;
+
+export type ProviderId = (typeof PROVIDER_IDS)[number];
+
+/** Provider ids plus the synthetic "none" used for fallback selection. */
+export const FALLBACK_PROVIDER_IDS = [...PROVIDER_IDS, "none"] as const;
 
 export interface PlanFileChange {
   path: string;
