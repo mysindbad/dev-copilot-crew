@@ -154,12 +154,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [review, setReview] = useState<ReviewBoardResult | null>(null);
   const [gitResult, setGitResult] = useState<GitResult | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
-    Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>
+    Partial<Record<ProviderId, ProviderStatus>>
   >({});
-  const [serverSecrets, setServerSecrets] = useState({
+  const [serverSecrets, setServerSecrets] = useState<Record<string, boolean>>({
     github: false,
     gemini: false,
     openrouter: false,
+    groq: false,
+    mistral: false,
+    huggingface: false,
     lovable: false,
   });
   const [secretTick, setSecretTick] = useState(0);
@@ -180,7 +183,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const providerStatusRef = useRef(providerStatuses);
   providerStatusRef.current = providerStatuses;
 
-  function forgetUnavailableModel(provider: "gemini" | "openrouter" | "lovable", model: string) {
+  function forgetUnavailableModel(provider: ProviderId, model: string) {
     setProviderStatuses((prev) => {
       const current = prev[provider];
       if (!current) return prev;
@@ -224,6 +227,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         github: Boolean(s.github),
         gemini: Boolean(s.gemini),
         openrouter: Boolean(s.openrouter),
+        groq: Boolean(s.groq),
+        mistral: Boolean(s.mistral),
+        huggingface: Boolean(s.huggingface),
         lovable: Boolean(s.lovable),
       }),
     );
@@ -234,10 +240,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [refreshSecrets]);
 
   const userSecrets = hydrated || secretTick ? getUserSecrets() : {};
-  const keyStatus = {
+  const keyStatus: Record<string, boolean> = {
     github: Boolean(serverSecrets.github || userSecrets.GITHUB_TOKEN),
     gemini: Boolean(serverSecrets.gemini || userSecrets.GEMINI_API_KEY),
     openrouter: Boolean(serverSecrets.openrouter || userSecrets.OPENROUTER_API_KEY),
+    groq: Boolean(serverSecrets.groq || userSecrets.GROQ_API_KEY),
+    mistral: Boolean(serverSecrets.mistral || userSecrets.MISTRAL_API_KEY),
+    huggingface: Boolean(serverSecrets.huggingface || userSecrets.HF_API_KEY),
     lovable: serverSecrets.lovable,
   };
 
