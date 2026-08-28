@@ -643,7 +643,9 @@ export async function inspectRepositoryReal(input: {
   push("Branch verified", "ok", `${branch.name} @ ${commitSha.slice(0, 7)}`);
 
   // cache by repository + branch + commit sha
-  const cached = readCache(repo.full_name, branch.name, commitSha);
+  // A partial audit is never reused: re-running must attempt full coverage again.
+  const cachedRaw = readCache(repo.full_name, branch.name, commitSha);
+  const cached = cachedRaw && cachedRaw.coverageComplete ? cachedRaw : null;
   if (cached) {
     push("Cached inspection reused", "ok", `Commit ${commitSha.slice(0, 7)} unchanged since last inspection`);
     const cachedEvents = [...cached.events, events[events.length - 1]!];
@@ -720,32 +722,70 @@ export async function inspectRepositoryReal(input: {
   ).length;
 
 
+  const owner = parsed!.owner;
+  const repoName = parsed!.repo;
   const contents = new Map<string, string>();
-  for (const c of toRead) {
+  const unreadable: string[] = [];
+
+
+  async function readOne(path: string): Promise<"ok" | "fail" | "abort"> {
     try {
       const r = await gh(
-        `/repos/${parsed.owner}/${parsed.repo}/contents/${c.f.path.split("/").map(encodeURIComponent).join("/")}?ref=${commitSha}`,
+        `/repos/${owner}/${repoName}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${commitSha}`,
         token,
       );
       rateLimit = r.rateLimit ?? rateLimit;
-      if (r.res.status === 403 && r.rateLimit?.remaining === 0) {
-        push("Rate limit reached while reading files", "warn", `Continuing with ${contents.size} files already read`);
-        break;
-      }
-      if (!r.res.ok) continue;
+      if (r.res.status === 403 && r.rateLimit?.remaining === 0) return "abort";
+      if (!r.res.ok) return "fail";
       const body = (await r.res.json()) as { content?: string; encoding?: string };
-      if (body.encoding === "base64" && body.content)
-        contents.set(c.f.path, Buffer.from(body.content, "base64").toString("utf8"));
+      if (body.encoding === "base64" && body.content) {
+        contents.set(path, Buffer.from(body.content, "base64").toString("utf8"));
+        return "ok";
+      }
+      return "fail";
     } catch {
-      /* skip unreadable file, inspection continues */
+      return "fail";
     }
   }
-  const coverageComplete = !tree.truncated && contents.size === inspectableFiles;
+
+  let aborted = false;
+  for (const c of toRead) {
+    if (aborted) break;
+    const state = await readOne(c.f.path);
+    if (state === "abort") {
+      aborted = true;
+      push("Rate limit reached while reading files", "warn", `Continuing with ${contents.size} files already read`);
+      break;
+    }
+    if (state === "fail") unreadable.push(c.f.path);
+  }
+
+  // One retry pass for transient GitHub failures before declaring partial coverage.
+  if (!aborted && unreadable.length > 0) {
+    const retryList = [...unreadable];
+    unreadable.length = 0;
+    for (const path of retryList) {
+      const state = await readOne(path);
+      if (state === "abort") {
+        aborted = true;
+        break;
+      }
+      if (state === "fail") unreadable.push(path);
+    }
+  }
+
+  // Files GitHub cannot serve as decodable text (binary, symlink, submodule,
+  // oversized blob) are not inspectable — they must not make coverage partial.
+  const effectiveInspectable = Math.max(0, inspectableFiles - unreadable.length);
+  const coverageComplete = !tree.truncated && !aborted && contents.size >= effectiveInspectable;
   push(
     "Relevant files read",
     coverageComplete ? "ok" : "warn",
-    `${contents.size} of ${inspectableFiles} inspectable text files read (${files.length} total files)`,
+    `${contents.size} of ${effectiveInspectable} inspectable text files read (${files.length} total files${
+      unreadable.length ? `, ${unreadable.length} not servable as text` : ""
+    })`,
   );
+
 
   // 5. analysis
   const stack = detectStack(files, contents, repo.language);
@@ -820,7 +860,7 @@ export async function inspectRepositoryReal(input: {
   if (stack.packageManager.value.includes("assumed")) risks.push("No lockfile is committed — dependency installs are not reproducible.");
   if (!coverageComplete)
     risks.push(
-      `Inspection is partial: ${contents.size} of ${inspectableFiles} inspectable text files were read. Unread files were not audited.`,
+      `Inspection is partial: ${contents.size} of ${effectiveInspectable} inspectable text files were read. Unread files were not audited.`,
     );
   const clientEnv = envReferences.filter((e) => e.referencedBy.some((f) => /^(src\/)?(components|pages|app|client)\//.test(f)) && !/^(VITE_|NEXT_PUBLIC_|PUBLIC_)/.test(e.name));
   if (clientEnv.length)
@@ -836,7 +876,7 @@ export async function inspectRepositoryReal(input: {
   if (tree.truncated) unknowns.push("Full file tree (GitHub truncated the response)");
   if (!coverageComplete)
     unknowns.push(
-      `Contents of ${Math.max(0, inspectableFiles - contents.size)} inspectable text files not read (inspection limit or GitHub failure)`,
+      `Contents of ${Math.max(0, effectiveInspectable - contents.size)} inspectable text files not read (inspection limit or GitHub failure)`,
     );
 
   const base = {
@@ -852,7 +892,7 @@ export async function inspectRepositoryReal(input: {
     largeRepository,
     counts: {
       totalFiles: files.length,
-      inspectableFiles,
+      inspectableFiles: effectiveInspectable,
       inspectedFiles: contents.size,
       skippedFiles: files.length - contents.size,
       byCategory,
