@@ -11,6 +11,7 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import {
   getSecretsStatus,
+  testRepositoryConnection,
   testProvider,
   type ProviderStatus,
   type RepoConnectionResult,
@@ -114,6 +115,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const secretsStatusFn = useServerFn(getSecretsStatus);
   const providerFn = useServerFn(testProvider);
+  const testRepoFn = useServerFn(testRepositoryConnection);
   const inspectFn = useServerFn(inspectRepository);
   const architectFn = useServerFn(generateArchitecturePlan);
   const coderFn = useServerFn(implementPlan);
@@ -251,7 +253,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         const pick = pickModel(provider, status.models, kind);
         if (!pick) continue;
         if (provider !== cfg.primaryProvider || pick.model !== cfg.primaryModel) {
-          setProviderConfig({ ...cfg, primaryProvider: provider, primaryModel: pick.model });
+          const next = { ...cfg, primaryProvider: provider, primaryModel: pick.model };
+          providerRef.current = next;
+          setProviderConfig(next);
         }
         if (announce && pick.model !== cfg.primaryModel) {
           say({
@@ -285,8 +289,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const runPipeline = useCallback(
     async (task: string) => {
       if (pipeline.running) return;
-      const cfg = providerRef.current;
-      const repoName = repoResult?.ok ? repoResult.repository?.fullName : "";
+      let activeRepoResult = repoResult;
+      if (!activeRepoResult?.ok && repoConfig.repoUrl.trim()) {
+        activeRepoResult = await testRepoFn({
+          data: { ...repoConfig, secrets: getUserSecrets() },
+        });
+        setRepoResult(activeRepoResult);
+      }
+      const repoName = activeRepoResult?.ok ? activeRepoResult.repository?.fullName : "";
       if (!repoName) {
         say({
           role: "assistant",
@@ -305,6 +315,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
+      const cfg = providerRef.current;
+      const backupModels = rankModels(
+        cfg.primaryProvider,
+        providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+        taskKind(task),
+      )
+        .filter((candidate) => candidate.model !== model)
+        .slice(0, 2)
+        .map((candidate) => candidate.model);
 
       setPipeline({ running: true, phase: "inspect", note: "" });
       setGitResult(null);
@@ -349,14 +368,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             request: task,
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
+            backupModels,
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
           },
         });
         if (!planRes.ok || !planRes.plan) {
-          sPlan.fail(arabize(planRes.error ?? ""));
-          throw new Error(arabize(planRes.error ?? "المهندس ما قدرش يصاوب الخطة."));
+          const attempts = planRes.attempts
+            .map((attempt) => `${attempt.model}: ${arabize(attempt.detail)}`)
+            .join("\n");
+          const detail = attempts || arabize(planRes.error ?? "المهندس ما قدرش يصاوب الخطة.");
+          sPlan.fail(detail);
+          throw new Error(`المهندس ما قدرش يصاوب الخطة.\n${detail}`);
         }
         const newPlan = planRes.plan;
         setPlan(newPlan);
@@ -460,7 +484,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
 
         // 5) Git manager — only with write access.
-        const writeAccess = repoResult?.ok ? Boolean(repoResult.repository?.writeAccess) : false;
+        const writeAccess = activeRepoResult?.ok
+          ? Boolean(activeRepoResult.repository?.writeAccess)
+          : false;
         if (!writeAccess) {
           setPipeline({ running: false, phase: "done", note: "no_write" });
           say({
@@ -536,6 +562,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       repoConfig.repoUrl,
       repoResult,
       reviewFn,
+      testRepoFn,
     ],
   );
 

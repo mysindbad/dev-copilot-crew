@@ -154,6 +154,7 @@ export interface ArchitectArgs {
   request: string;
   primaryProvider: ProviderId;
   primaryModel: string;
+  backupModels?: string[];
   fallbackProvider: ProviderId | "none";
   fallbackModel: string;
 }
@@ -203,6 +204,11 @@ export async function generatePlanReal(args: ArchitectArgs): Promise<ArchitectRe
 
   const routes: { provider: ProviderId; model: string }[] = [];
   if (args.primaryModel) routes.push({ provider: args.primaryProvider, model: args.primaryModel });
+  for (const model of args.backupModels ?? []) {
+    if (model && !routes.some((route) => route.provider === args.primaryProvider && route.model === model)) {
+      routes.push({ provider: args.primaryProvider, model });
+    }
+  }
   if (args.fallbackProvider !== "none" && args.fallbackModel)
     routes.push({ provider: args.fallbackProvider, model: args.fallbackModel });
 
@@ -227,7 +233,10 @@ export async function generatePlanReal(args: ArchitectArgs): Promise<ArchitectRe
       });
       continue;
     }
-    const res = await callLlm(route.provider, route.model, SYSTEM, prompt);
+    const res = await callLlm(route.provider, route.model, SYSTEM, prompt, {
+      maxAttempts: 1,
+      timeoutMs: 35_000,
+    });
     const ms = Date.now() - started;
     if (!res.ok || !res.text) {
       attempts.push({
@@ -300,11 +309,15 @@ export async function generatePlanReal(args: ArchitectArgs): Promise<ArchitectRe
   }
 
   const rateLimited = attempts.some((a) => /429|rate limit|quota/i.test(a.detail));
+  const attemptSummary = attempts
+    .map((attempt) => `${attempt.model}: ${attempt.detail}`)
+    .join(" | ")
+    .slice(0, 900);
   return {
     ok: false,
     error: rateLimited
-      ? "Every route was rate limited or out of quota. Try again later or select another free model."
-      : "All configured model routes failed. See the attempt log below.",
+      ? `Every route was rate limited or out of quota. ${attemptSummary}`
+      : `All configured model routes failed. ${attemptSummary}`,
     errorKind: rateLimited ? "rate_limit" : "provider_error",
     attempts,
   };

@@ -17,6 +17,7 @@ export interface LlmCallResult {
 export interface LlmCallOptions {
   /** Conversational requests should fail over quickly instead of blocking the UI. */
   maxAttempts?: 1 | 2;
+  timeoutMs?: number;
 }
 
 /** Remove anything that could resemble a credential from a provider message. */
@@ -50,7 +51,7 @@ export async function callLlm(
 ): Promise<LlmCallResult> {
   const maxAttempts = options.maxAttempts ?? 2;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const res = await callLlmOnce(provider, model, system, user);
+    const res = await callLlmOnce(provider, model, system, user, options.timeoutMs ?? 35_000);
     const transient =
       res.status === 503 || res.status === 429 || res.status === 524 || (res.status ?? 0) >= 500;
     if (res.ok || !transient || attempt === maxAttempts - 1) return res;
@@ -64,7 +65,10 @@ async function callLlmOnce(
   model: string,
   system: string,
   user: string,
+  timeoutMs: number,
 ): Promise<LlmCallResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     if (provider === "gemini") {
       const key = getSecret("GEMINI_API_KEY");
@@ -74,6 +78,7 @@ async function callLlmOnce(
         {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          signal: controller.signal,
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: [{ role: "user", parts: [{ text: user }] }],
@@ -108,6 +113,7 @@ async function callLlmOnce(
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      signal: controller.signal,
       body: JSON.stringify({
         model,
         temperature: 0.2,
@@ -134,6 +140,11 @@ async function callLlmOnce(
       };
     return { ok: true, text, status: res.status };
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return { ok: false, status: 524, error: `انتهت مهلة النموذج ${model} بعد ${Math.round(timeoutMs / 1000)} ثانية.` };
+    }
     return { ok: false, error: redact(error instanceof Error ? error.message : "Network error.") };
+  } finally {
+    clearTimeout(timeout);
   }
 }

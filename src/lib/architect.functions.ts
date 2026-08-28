@@ -8,6 +8,7 @@ const ArchitectInput = z.object({
   request: z.string().min(8),
   primaryProvider: z.enum(["gemini", "openrouter"]),
   primaryModel: z.string(),
+  backupModels: z.array(z.string().min(1)).max(3).default([]),
   fallbackProvider: z.enum(["gemini", "openrouter", "none"]),
   fallbackModel: z.string(),
   secrets: SecretsPayload,
