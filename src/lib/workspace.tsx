@@ -645,7 +645,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               "chat",
             )
               .filter((p) => p.model !== model)
-              .slice(0, 1)
+              .slice(0, 3)
               .map((p) => p.model),
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
