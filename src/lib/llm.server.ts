@@ -132,7 +132,7 @@ async function callLlmOnce(
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: [{ role: "user", parts: [{ text: user }] }],
-            generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+            generationConfig: { temperature, responseMimeType: "application/json" },
           }),
         },
       );
@@ -166,7 +166,7 @@ async function callLlmOnce(
       signal: controller.signal,
       body: JSON.stringify({
         model,
-        temperature: 0.2,
+        temperature,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
