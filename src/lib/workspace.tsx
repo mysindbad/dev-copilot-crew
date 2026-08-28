@@ -289,8 +289,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const runPipeline = useCallback(
     async (task: string) => {
       if (pipeline.running) return;
-      let activeRepoResult = repoResult;
-      if (!activeRepoResult?.ok && repoConfig.repoUrl.trim()) {
+      let activeRepoResult: RepoConnectionResult | null = null;
+      if (repoConfig.repoUrl.trim()) {
         activeRepoResult = await testRepoFn({
           data: { ...repoConfig, secrets: getUserSecrets() },
         });
@@ -576,7 +576,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       pipeline.running,
       repoConfig.branch,
       repoConfig.repoUrl,
-      repoResult,
       reviewFn,
       testRepoFn,
     ],

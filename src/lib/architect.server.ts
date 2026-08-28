@@ -209,7 +209,13 @@ export async function generatePlanReal(args: ArchitectArgs): Promise<ArchitectRe
       routes.push({ provider: args.primaryProvider, model });
     }
   }
-  if (args.fallbackProvider !== "none" && args.fallbackModel)
+  if (
+    args.fallbackProvider !== "none" &&
+    args.fallbackModel &&
+    !routes.some(
+      (route) => route.provider === args.fallbackProvider && route.model === args.fallbackModel,
+    )
+  )
     routes.push({ provider: args.fallbackProvider, model: args.fallbackModel });
 
   if (routes.length === 0) {
