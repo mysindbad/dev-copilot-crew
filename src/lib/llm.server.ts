@@ -23,20 +23,24 @@ export interface LlmCallOptions {
 }
 
 
-/** Remove anything that could resemble a credential from a provider message. */
 export function redact(message: string): string {
   return message
     .replace(/AIza[0-9A-Za-z\-_]{10,}/g, "[redacted]")
     .replace(/sk-[A-Za-z0-9\-_]{10,}/g, "[redacted]")
+    .replace(/gsk_[A-Za-z0-9]+/g, "[redacted]")
+    .replace(/hf_[A-Za-z0-9]+/g, "[redacted]")
     .replace(/gh[pousr]_[A-Za-z0-9]+/g, "[redacted]")
     .slice(0, 400);
 }
 
 export function hasProviderKey(provider: ProviderId): boolean {
   if (provider === "lovable") return Boolean(process.env["LOVABLE_API_KEY"]);
-  return provider === "gemini"
-    ? Boolean(getSecret("GEMINI_API_KEY"))
-    : Boolean(getSecret("OPENROUTER_API_KEY"));
+  if (provider === "gemini") return Boolean(getSecret("GEMINI_API_KEY"));
+  if (provider === "openrouter") return Boolean(getSecret("OPENROUTER_API_KEY"));
+  if (provider === "groq") return Boolean(getSecret("GROQ_API_KEY"));
+  if (provider === "mistral") return Boolean(getSecret("MISTRAL_API_KEY"));
+  if (provider === "huggingface") return Boolean(getSecret("HF_API_KEY"));
+  return false;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
