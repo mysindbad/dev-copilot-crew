@@ -18,7 +18,10 @@ export interface LlmCallOptions {
   /** Conversational requests should fail over quickly instead of blocking the UI. */
   maxAttempts?: 1 | 2;
   timeoutMs?: number;
+  /** Higher values make the answer sound more human/conversational. */
+  temperature?: number;
 }
+
 
 /** Remove anything that could resemble a credential from a provider message. */
 export function redact(message: string): string {
@@ -52,7 +55,14 @@ export async function callLlm(
 ): Promise<LlmCallResult> {
   const maxAttempts = options.maxAttempts ?? 2;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const res = await callLlmOnce(provider, model, system, user, options.timeoutMs ?? 35_000);
+    const res = await callLlmOnce(
+      provider,
+      model,
+      system,
+      user,
+      options.timeoutMs ?? 35_000,
+      options.temperature ?? 0.2,
+    );
     const transient =
       res.status === 503 || res.status === 429 || res.status === 524 || (res.status ?? 0) >= 500;
     if (res.ok || !transient || attempt === maxAttempts - 1) return res;
@@ -67,9 +77,11 @@ async function callLlmOnce(
   system: string,
   user: string,
   timeoutMs: number,
+  temperature: number,
 ): Promise<LlmCallResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     if (provider === "lovable") {
       const key = process.env["LOVABLE_API_KEY"];
@@ -84,6 +96,8 @@ async function callLlmOnce(
         signal: controller.signal,
         body: JSON.stringify({
           model,
+          temperature,
+
           messages: [
             { role: "system", content: system },
             { role: "user", content: user },
@@ -118,7 +132,7 @@ async function callLlmOnce(
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: [{ role: "user", parts: [{ text: user }] }],
-            generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+            generationConfig: { temperature, responseMimeType: "application/json" },
           }),
         },
       );
@@ -152,7 +166,7 @@ async function callLlmOnce(
       signal: controller.signal,
       body: JSON.stringify({
         model,
-        temperature: 0.2,
+        temperature,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
