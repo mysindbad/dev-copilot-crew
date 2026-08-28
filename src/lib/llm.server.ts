@@ -14,6 +14,11 @@ export interface LlmCallResult {
   error?: string;
 }
 
+export interface LlmCallOptions {
+  /** Conversational requests should fail over quickly instead of blocking the UI. */
+  maxAttempts?: 1 | 2;
+}
+
 /** Remove anything that could resemble a credential from a provider message. */
 export function redact(message: string): string {
   return message
@@ -41,20 +46,18 @@ export async function callLlm(
   model: string,
   system: string,
   user: string,
+  options: LlmCallOptions = {},
 ): Promise<LlmCallResult> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const maxAttempts = options.maxAttempts ?? 2;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const res = await callLlmOnce(provider, model, system, user);
     const transient =
       res.status === 503 || res.status === 429 || res.status === 524 || (res.status ?? 0) >= 500;
-    if (res.ok || !transient || attempt === 1) return res;
+    if (res.ok || !transient || attempt === maxAttempts - 1) return res;
     await sleep(4000);
   }
   return { ok: false, error: "unreachable" };
 }
-
-/** Abort a provider call that hangs, so the caller can move to a backup model. */
-const CALL_TIMEOUT_MS = 45_000;
-
 
 async function callLlmOnce(
   provider: ProviderId,
