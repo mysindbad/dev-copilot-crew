@@ -47,6 +47,24 @@ const META: Record<Key, { title: string; hint: string; placeholder: string; link
     placeholder: "sk-or-…",
     link: KEY_SOURCES.openrouter,
   },
+  GROQ_API_KEY: {
+    title: "مفتاح Groq (مجاني، الأسرع)",
+    hint: "مجاني دائم وبلا بطاقة بنكية. سريع بزاف — مزيان للمدير.",
+    placeholder: "gsk_…",
+    link: KEY_SOURCES.groq,
+  },
+  MISTRAL_API_KEY: {
+    title: "مفتاح Mistral AI (مجاني)",
+    hint: "10$ شهريا مجانا، بلا بطاقة. نماذج قوية بزاف.",
+    placeholder: "…",
+    link: KEY_SOURCES.mistral,
+  },
+  HF_API_KEY: {
+    title: "مفتاح Hugging Face (مجاني)",
+    hint: "كيعطي وصول لآلاف النماذج، فيها نماذج :free.",
+    placeholder: "hf_…",
+    link: KEY_SOURCES.huggingface,
+  },
 };
 
 /** Right-side settings drawer: repository, token and provider keys in one place. */
