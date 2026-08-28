@@ -16,11 +16,11 @@ export interface ModelPick {
   reason: string;
 }
 
-/** OpenRouter marks free routes with a ":free" suffix. */
-function isFree(provider: "gemini" | "openrouter" | "lovable", model: string): boolean {
-  if (provider === "openrouter") return model.endsWith(":free");
-  // Gemini pricing depends on the account and quota. A model name alone does
-  // not prove that the request is free.
+/** OpenRouter and Hugging Face mark free routes with a ":free" suffix. */
+function isFree(provider: ProviderId, model: string): boolean {
+  if (provider === "openrouter" || provider === "huggingface") return model.endsWith(":free");
+  // Gemini, Groq, and Mistral free tiers depend on the account and quota. A
+  // model name alone does not prove that the request is free.
   return false;
 }
 
