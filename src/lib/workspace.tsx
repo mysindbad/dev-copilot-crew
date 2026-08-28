@@ -113,8 +113,8 @@ interface Ctx {
   gitResult: GitResult | null;
   providerStatuses: Partial<Record<ProviderId, ProviderStatus>>;
   setProviderStatus: (s: ProviderStatus) => void;
-  keyStatus: Record<string, boolean>;
-  serverSecrets: Record<string, boolean>;
+  keyStatus: SecretFlags;
+  serverSecrets: SecretFlags;
   refreshSecrets: () => void;
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
@@ -167,7 +167,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [providerStatuses, setProviderStatuses] = useState<
     Partial<Record<ProviderId, ProviderStatus>>
   >({});
-  const [serverSecrets, setServerSecrets] = useState<Record<string, boolean>>({
+  const [serverSecrets, setServerSecrets] = useState<SecretFlags>({
     github: false,
     gemini: false,
     openrouter: false,
@@ -251,7 +251,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [refreshSecrets]);
 
   const userSecrets = hydrated || secretTick ? getUserSecrets() : {};
-  const keyStatus: Record<string, boolean> = {
+  const keyStatus: SecretFlags = {
     github: Boolean(serverSecrets.github || userSecrets.GITHUB_TOKEN),
     gemini: Boolean(serverSecrets.gemini || userSecrets.GEMINI_API_KEY),
     openrouter: Boolean(serverSecrets.openrouter || userSecrets.OPENROUTER_API_KEY),
