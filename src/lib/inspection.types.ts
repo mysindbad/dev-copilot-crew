@@ -100,7 +100,17 @@ export interface RepositoryAudit {
   private: boolean;
   truncatedTree: boolean;
   largeRepository: boolean;
-  counts: { totalFiles: number; inspectedFiles: number; byCategory: Record<string, number> };
+  counts: {
+    totalFiles: number;
+    inspectableFiles: number;
+    inspectedFiles: number;
+    skippedFiles: number;
+    byCategory: Record<string, number>;
+  };
+  /** True only when every inspectable text file in the returned Git tree was read. */
+  coverageComplete: boolean;
+  /** Real paths whose contents were read; never inferred paths. */
+  inspectedPaths: string[];
   stack: Stack;
   entryPoints: { path: string; role: string }[];
   importantFiles: { path: string; category: FileCategory; reason: string }[];

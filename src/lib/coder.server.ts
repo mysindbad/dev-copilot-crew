@@ -132,6 +132,7 @@ export interface CoderArgs {
   stepOrders: number[];
   primaryProvider: ProviderId;
   primaryModel: string;
+  backupModels?: string[];
   fallbackProvider: ProviderId | "none";
   fallbackModel: string;
 }
@@ -280,6 +281,11 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
 
   const routes: { provider: ProviderId; model: string }[] = [];
   if (args.primaryModel) routes.push({ provider: args.primaryProvider, model: args.primaryModel });
+  for (const model of args.backupModels ?? []) {
+    if (model && !routes.some((route) => route.provider === args.primaryProvider && route.model === model)) {
+      routes.push({ provider: args.primaryProvider, model });
+    }
+  }
   if (args.fallbackProvider !== "none" && args.fallbackModel)
     routes.push({ provider: args.fallbackProvider, model: args.fallbackModel });
   if (routes.length === 0) {
@@ -302,6 +308,9 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
         detail: `${route.provider} API key is not configured.`,
         ms: 0,
       });
+      // A provider-wide quota denial will also reject its sibling models. Do
+      // not burn more requests on the same provider in this run.
+      if (res.status === 429) break;
       continue;
     }
     const res = await callLlm(route.provider, route.model, SYSTEM, promptLines.join("\n"), {
@@ -485,7 +494,7 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
   return {
     ok: false,
     error: attempts[attempts.length - 1]?.detail ?? "The coder agent produced no usable change.",
-    errorKind: attempts.some((a) => a.detail.includes("429")) ? "provider_error" : "bad_output",
+    errorKind: attempts.some((a) => /429|rate limit|quota/i.test(a.detail)) ? "provider_error" : "bad_output",
     attempts,
     events,
   };

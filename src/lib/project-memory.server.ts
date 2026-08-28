@@ -22,6 +22,11 @@ export interface ProjectMemoryEntry {
   BUILD_COMMAND: string;
   DEPLOYMENT: string;
   IMPORTANT_FILES: string[];
+  TOTAL_FILES: number;
+  INSPECTABLE_FILES: number;
+  INSPECTED_FILES: number;
+  COVERAGE_COMPLETE: boolean;
+  INSPECTED_PATHS: string[];
   KNOWN_RISKS: string[];
   UNKNOWNS: string[];
 }
@@ -46,6 +51,11 @@ export function rememberAudit(audit: RepositoryAudit): ProjectMemoryEntry {
     BUILD_COMMAND: audit.buildCommand,
     DEPLOYMENT: audit.stack.deployment.value,
     IMPORTANT_FILES: audit.importantFiles.map((f) => f.path),
+    TOTAL_FILES: audit.counts.totalFiles,
+    INSPECTABLE_FILES: audit.counts.inspectableFiles,
+    INSPECTED_FILES: audit.counts.inspectedFiles,
+    COVERAGE_COMPLETE: audit.coverageComplete,
+    INSPECTED_PATHS: audit.inspectedPaths,
     KNOWN_RISKS: audit.risks,
     UNKNOWNS: audit.unknowns,
   };

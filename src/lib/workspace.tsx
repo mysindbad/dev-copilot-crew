@@ -367,11 +367,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           }
           currentAudit = res.audit;
           setAudit(res.audit);
-          s.ok(`${res.audit.counts.totalFiles} ملف`);
+          s.ok(
+            `${res.audit.counts.inspectedFiles}/${res.audit.counts.inspectableFiles} ملف نصي قابل للفحص`,
+          );
           say({
             role: "assistant",
             agent: "فاحص المستودع",
-            content: `فحصت المشروع: ${res.audit.counts.totalFiles} ملف، ${res.audit.apiMap.length} مسار API، عند التعديل ${res.audit.commitSha.slice(0, 7)}.`,
+            content: res.audit.coverageComplete
+              ? `فحصت جميع الملفات النصية القابلة للفحص: ${res.audit.counts.inspectedFiles} من ${res.audit.counts.inspectableFiles} (${res.audit.counts.totalFiles} ملف إجمالًا)، ووجدت ${res.audit.apiMap.length} مسار API، عند النسخة ${res.audit.commitSha.slice(0, 7)}.`
+              : `الفحص جزئي: قريت ${res.audit.counts.inspectedFiles} من ${res.audit.counts.inspectableFiles} ملف نصي قابل للفحص (${res.audit.counts.totalFiles} ملف إجمالًا). الملفات اللي ما تقراتش ما غاديش ندّعي أننا فحصناها.`,
           });
         }
 
@@ -412,13 +416,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
         // 3) Coder.
         setPipeline({ running: true, phase: "code", note: "" });
-        const sCode = step("المبرمج", "كتابة التعديلات على الملفات", model);
+        const codeCandidates = rankModels(
+          cfg.primaryProvider,
+          providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+          "code",
+        )
+          .map((candidate) => candidate.model)
+          .filter((candidate) => candidate !== newPlan.model);
+        const codeModel = codeCandidates[0] ?? model;
+        const sCode = step("المبرمج", "كتابة التعديلات على الملفات", codeModel);
         const coderRes = await coderFn({
           data: {
             plan: newPlan,
             stepOrders: newPlan.steps.map((st) => st.order),
             primaryProvider: cfg.primaryProvider,
-            primaryModel: model,
+            primaryModel: codeModel,
+            backupModels: codeCandidates.slice(1, 3),
             fallbackProvider,
             fallbackModel,
             secrets: getUserSecrets(),

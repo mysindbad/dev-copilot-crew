@@ -60,6 +60,7 @@ export interface ArchitectResult {
   error?: string | undefined;
   errorKind?:
     | "no_audit"
+    | "incomplete_audit"
     | "no_provider"
     | "provider_error"
     | "rate_limit"
