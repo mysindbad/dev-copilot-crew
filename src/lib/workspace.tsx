@@ -282,12 +282,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // مجاني 100%: نستعمل غير مفاتيح المستخدم المجانية.
       // الذكاء المدمج (lovable) كيستهلك أرصدة، فما كنستعملوهش تلقائيا —
       // غير إلا المستخدم ختارو بنفسو من الإعدادات.
-      const free: ("gemini" | "openrouter")[] = ["gemini", "openrouter"];
-      const order = (
+      const free = PROVIDER_IDS.filter((p) => p !== "lovable") as ProviderId[];
+      const order: ProviderId[] =
         cfg.primaryProvider === "lovable"
           ? ["lovable", ...free]
-          : [cfg.primaryProvider, ...free.filter((p) => p !== cfg.primaryProvider)]
-      ) as ("gemini" | "openrouter" | "lovable")[];
+          : [cfg.primaryProvider, ...free.filter((p) => p !== cfg.primaryProvider)];
 
 
       for (const provider of order) {
