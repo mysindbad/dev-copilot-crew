@@ -20,6 +20,7 @@ export type ProviderId = (typeof PROVIDER_IDS)[number];
 
 /** Provider ids plus the synthetic "none" used for fallback selection. */
 export const FALLBACK_PROVIDER_IDS = [...PROVIDER_IDS, "none"] as const;
+export type FallbackProviderId = (typeof FALLBACK_PROVIDER_IDS)[number];
 
 export interface PlanFileChange {
   path: string;
