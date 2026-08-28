@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { SecretsPayload } from "./user-secrets";
+import { PROVIDER_IDS, type ProviderId } from "./architect.types";
 
 /**
  * Phase 1 — secure connection layer.
@@ -228,7 +229,7 @@ export const LOVABLE_MODELS = [
 
 
 export interface ProviderStatus {
-  provider: "gemini" | "openrouter" | "lovable";
+  provider: ProviderId;
   configured: boolean;
   ok: boolean;
   detail: string;
@@ -236,7 +237,7 @@ export interface ProviderStatus {
 }
 
 const ProviderInput = z.object({
-  provider: z.enum(["gemini", "openrouter", "lovable"]),
+  provider: z.enum(PROVIDER_IDS),
   secrets: SecretsPayload,
 });
 
