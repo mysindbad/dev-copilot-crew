@@ -133,7 +133,12 @@ export async function runTeamLeadTurn(input: ChatInput): Promise<ChatResult> {
       continue;
     }
     const started = Date.now();
-    const res = await callLlm(c.provider, c.model, system, user);
+    // Chat must stay responsive: do not retry the same busy model. The loop
+    // below moves to one of the already validated backup models instead.
+    const res = await callLlm(c.provider, c.model, system, user, {
+      maxAttempts: 1,
+      timeoutMs: 30_000,
+    });
     const ms = Date.now() - started;
     if (!res.ok || !res.text) {
       attempts.push({
@@ -175,5 +180,11 @@ export async function runTeamLeadTurn(input: ChatInput): Promise<ChatResult> {
     };
   }
 
-  return { ok: false, error: lastError, errorKind: lastKind, attempts };
+  const tried = attempts.map((attempt) => attempt.model).join("، ");
+  return {
+    ok: false,
+    error: `${lastError}${tried ? ` النماذج اللي تجرّبات: ${tried}.` : ""}`,
+    errorKind: lastKind,
+    attempts,
+  };
 }
