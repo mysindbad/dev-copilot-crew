@@ -24,7 +24,7 @@ function isFree(provider: ProviderId, model: string): boolean {
   return false;
 }
 
-function score(provider: "gemini" | "openrouter" | "lovable", model: string, kind: TaskKind): number {
+function score(provider: ProviderId, model: string, kind: TaskKind): number {
   const m = model.toLowerCase();
   let s = 0;
   // Gemini may still list legacy models that reject requests from new users.
@@ -59,7 +59,7 @@ function score(provider: "gemini" | "openrouter" | "lovable", model: string, kin
 
 /** All usable REAL models, best first. */
 export function rankModels(
-  provider: "gemini" | "openrouter" | "lovable",
+  provider: ProviderId,
   models: string[],
   kind: TaskKind,
 ): ModelPick[] {
@@ -84,7 +84,7 @@ export function rankModels(
 
 /** Choose the best REAL model for a task, free models first. */
 export function pickModel(
-  provider: "gemini" | "openrouter" | "lovable",
+  provider: ProviderId,
   models: string[],
   kind: TaskKind,
 ): ModelPick | null {
@@ -102,4 +102,7 @@ export const KEY_SOURCES = {
   gemini: "https://aistudio.google.com/apikey",
   openrouter: "https://openrouter.ai/settings/keys",
   github: "https://github.com/settings/tokens",
+  groq: "https://console.groq.com/keys",
+  mistral: "https://console.mistral.ai/api-keys",
+  huggingface: "https://huggingface.co/settings/tokens",
 } as const;
