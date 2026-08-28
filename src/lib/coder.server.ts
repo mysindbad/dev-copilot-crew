@@ -298,7 +298,9 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
     };
   }
 
+  const rateLimitedProviders = new Set<ProviderId>();
   for (const route of routes) {
+    if (rateLimitedProviders.has(route.provider)) continue;
     const started = Date.now();
     if (!hasProviderKey(route.provider)) {
       attempts.push({
@@ -323,15 +325,9 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
         detail: res.error ?? "Provider call failed.",
         ms,
       });
-      // A provider-wide quota denial will also reject its sibling models. Do
-      // not burn more requests on the same provider in this run; a configured
-      // provider fallback remains available on a later route.
-      if (res.status === 429) {
-        const nextDifferentProvider = routes.findIndex(
-          (candidate, index) => index > routes.indexOf(route) && candidate.provider !== route.provider,
-        );
-        if (nextDifferentProvider < 0) break;
-      }
+      // A provider-wide quota denial will also reject its sibling models. Skip
+      // them while still allowing a separately configured provider fallback.
+      if (res.status === 429) rateLimitedProviders.add(route.provider);
       continue;
     }
     try {
