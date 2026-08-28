@@ -643,7 +643,9 @@ export async function inspectRepositoryReal(input: {
   push("Branch verified", "ok", `${branch.name} @ ${commitSha.slice(0, 7)}`);
 
   // cache by repository + branch + commit sha
-  const cached = readCache(repo.full_name, branch.name, commitSha);
+  // A partial audit is never reused: re-running must attempt full coverage again.
+  const cachedRaw = readCache(repo.full_name, branch.name, commitSha);
+  const cached = cachedRaw && cachedRaw.coverageComplete ? cachedRaw : null;
   if (cached) {
     push("Cached inspection reused", "ok", `Commit ${commitSha.slice(0, 7)} unchanged since last inspection`);
     const cachedEvents = [...cached.events, events[events.length - 1]!];
