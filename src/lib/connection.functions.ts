@@ -467,5 +467,8 @@ export const getSecretsStatus = createServerFn({ method: "GET" }).handler(async 
   github: Boolean(process.env["GITHUB_TOKEN"]),
   gemini: Boolean(process.env["GEMINI_API_KEY"]),
   openrouter: Boolean(process.env["OPENROUTER_API_KEY"]),
+  groq: Boolean(process.env["GROQ_API_KEY"]),
+  mistral: Boolean(process.env["MISTRAL_API_KEY"]),
+  huggingface: Boolean(process.env["HF_API_KEY"]),
   lovable: Boolean(process.env["LOVABLE_API_KEY"]),
 }));
