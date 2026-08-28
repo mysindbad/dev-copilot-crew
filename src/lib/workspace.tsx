@@ -34,9 +34,9 @@ export interface RepoConfig {
 }
 
 export interface ProviderConfig {
-  primaryProvider: "gemini" | "openrouter" | "lovable";
+  primaryProvider: ProviderId;
   primaryModel: string;
-  fallbackProvider: "gemini" | "openrouter" | "lovable" | "none";
+  fallbackProvider: FallbackProviderId;
   fallbackModel: string;
   freeOnly: boolean;
 }
@@ -44,6 +44,22 @@ export interface ProviderConfig {
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
 import { pickModel, rankModels, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
+import {
+  PROVIDER_IDS,
+  FALLBACK_PROVIDER_IDS,
+  type ProviderId,
+  type FallbackProviderId,
+} from "@/lib/architect.types";
+
+/** Human-readable Arabic label for a provider id. */
+const PROVIDER_LABEL: Record<ProviderId, string> = {
+  gemini: "Gemini",
+  openrouter: "OpenRouter",
+  lovable: "الذكاء المدمج",
+  groq: "Groq",
+  mistral: "Mistral",
+  huggingface: "Hugging Face",
+};
 
 /**
  * Shared workspace state for the whole app.
