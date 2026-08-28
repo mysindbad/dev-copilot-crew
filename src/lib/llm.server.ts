@@ -29,7 +29,29 @@ export function hasProviderKey(provider: ProviderId): boolean {
     : Boolean(getSecret("OPENROUTER_API_KEY"));
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Call a provider model. Transient overload/rate-limit answers (503, 429)
+ * are retried once after a short wait before the caller falls back to
+ * another model.
+ */
 export async function callLlm(
+  provider: ProviderId,
+  model: string,
+  system: string,
+  user: string,
+): Promise<LlmCallResult> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await callLlmOnce(provider, model, system, user);
+    const transient = res.status === 503 || res.status === 429 || (res.status ?? 0) >= 500;
+    if (res.ok || !transient || attempt === 1) return res;
+    await sleep(4000);
+  }
+  return { ok: false, error: "unreachable" };
+}
+
+async function callLlmOnce(
   provider: ProviderId,
   model: string,
   system: string,

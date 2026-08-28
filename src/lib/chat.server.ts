@@ -19,6 +19,8 @@ export interface ChatInput {
   };
   primaryProvider: ProviderId;
   primaryModel: string;
+  /** Other real models on the SAME provider, tried in order if the primary is busy. */
+  backupModels?: string[];
   fallbackProvider: ProviderId | "none";
   fallbackModel: string;
 }
@@ -98,6 +100,11 @@ export async function runTeamLeadTurn(input: ChatInput): Promise<ChatResult> {
   const candidates: { provider: ProviderId; model: string; fallback: boolean }[] = [];
   if (input.primaryModel) {
     candidates.push({ provider: input.primaryProvider, model: input.primaryModel, fallback: false });
+    for (const m of input.backupModels ?? []) {
+      if (m && m !== input.primaryModel) {
+        candidates.push({ provider: input.primaryProvider, model: m, fallback: true });
+      }
+    }
   }
   if (input.fallbackProvider !== "none" && input.fallbackModel) {
     candidates.push({ provider: input.fallbackProvider, model: input.fallbackModel, fallback: true });
