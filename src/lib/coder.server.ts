@@ -1,3 +1,4 @@
+import { extractJsonLoose } from "./json-extract";
 import { getSecret } from "./secrets.server";
 import { z } from "zod";
 import type { ArchitectPlan, ProviderId } from "./architect.types";
