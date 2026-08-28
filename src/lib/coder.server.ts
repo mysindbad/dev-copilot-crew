@@ -421,7 +421,10 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
           provider: route.provider,
           model: route.model,
           ok: false,
-          detail: `No change survived the guardrails (${runBlocked.length} rejected).`,
+          detail: `No change survived the guardrails (${runBlocked.length} rejected): ${runBlocked
+            .slice(0, 6)
+            .map((b) => `${b.path} (${b.reason})`)
+            .join("; ")}`,
           ms,
         });
         continue;
