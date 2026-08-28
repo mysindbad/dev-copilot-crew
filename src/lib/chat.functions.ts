@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { SecretsPayload } from "./user-secrets";
+import { PROVIDER_IDS, FALLBACK_PROVIDER_IDS } from "./architect.types";
 import type { ChatResult } from "./chat.types";
 
 const Input = z.object({

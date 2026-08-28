@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { ArchitectPlan } from "./architect.types";
+import { PROVIDER_IDS, FALLBACK_PROVIDER_IDS } from "./architect.types";
 import { SecretsPayload } from "./user-secrets";
 import type { CoderResult } from "./coder.types";
 
