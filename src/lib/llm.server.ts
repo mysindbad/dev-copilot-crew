@@ -53,6 +53,13 @@ export async function callLlm(
       );
       if (!res.ok) {
         const body = await res.text();
+        if (res.status === 404 && /no longer available/i.test(body)) {
+          return {
+            ok: false,
+            status: res.status,
+            error: `النموذج ${model} توقف عند Google. اختَر نموذجًا حديثًا مثل gemini-3.6-flash.`,
+          };
+        }
         return { ok: false, status: res.status, error: redact(`Gemini ${res.status}: ${body}`) };
       }
       const json = (await res.json()) as {
