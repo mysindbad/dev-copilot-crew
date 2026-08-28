@@ -729,7 +729,7 @@ export async function inspectRepositoryReal(input: {
   async function readOne(path: string): Promise<"ok" | "fail" | "abort"> {
     try {
       const r = await gh(
-        `/repos/${parsed.owner}/${parsed.repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${commitSha}`,
+        `/repos/${owner}/${repoName}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${commitSha}`,
         token,
       );
       rateLimit = r.rateLimit ?? rateLimit;
