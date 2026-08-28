@@ -81,7 +81,7 @@ function contextBlock(c: ChatInput["context"]): string {
 
 function transcript(messages: ChatMessage[]): string {
   return messages
-    .slice(-14)
+    .slice(-30)
     .map((m) => `${m.role === "user" ? "HUMAN" : "TEAM LEAD"}: ${m.content}`)
     .join("\n\n");
 }
