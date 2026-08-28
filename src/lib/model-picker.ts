@@ -36,7 +36,7 @@ function score(provider: "gemini" | "openrouter" | "lovable", model: string, kin
 
   // Prefer the newest callable Gemini generation instead of relying on the
   // provider's alphabetical model-list order.
-  if (provider === "gemini") {
+  if (provider === "gemini" || provider === "lovable") {
     if (/gemini-3\.7/.test(m)) s += 90;
     else if (/gemini-3\.6/.test(m)) s += 80;
     else if (/gemini-3\.5/.test(m)) s += 70;

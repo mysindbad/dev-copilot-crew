@@ -219,6 +219,13 @@ export const testRepositoryConnection = createServerFn({ method: "POST" })
     };
     });
   });
+/** Built-in Lovable AI models — no user key needed. */
+export const LOVABLE_MODELS = [
+  "google/gemini-3.7-flash",
+  "google/gemini-3.5-flash",
+  "google/gemini-3.1-flash-lite",
+] as const;
+
 
 export interface ProviderStatus {
   provider: "gemini" | "openrouter" | "lovable";
