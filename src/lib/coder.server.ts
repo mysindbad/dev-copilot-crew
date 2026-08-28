@@ -303,7 +303,10 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
       });
       continue;
     }
-    const res = await callLlm(route.provider, route.model, SYSTEM, promptLines.join("\n"));
+    const res = await callLlm(route.provider, route.model, SYSTEM, promptLines.join("\n"), {
+      maxAttempts: 1,
+      timeoutMs: 45_000,
+    });
     const ms = Date.now() - started;
     if (!res.ok || !res.text) {
       attempts.push({

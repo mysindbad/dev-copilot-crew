@@ -11,6 +11,7 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import {
   getSecretsStatus,
+  testRepositoryConnection,
   testProvider,
   type ProviderStatus,
   type RepoConnectionResult,
@@ -114,6 +115,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const secretsStatusFn = useServerFn(getSecretsStatus);
   const providerFn = useServerFn(testProvider);
+  const testRepoFn = useServerFn(testRepositoryConnection);
   const inspectFn = useServerFn(inspectRepository);
   const architectFn = useServerFn(generateArchitecturePlan);
   const coderFn = useServerFn(implementPlan);
@@ -251,7 +253,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         const pick = pickModel(provider, status.models, kind);
         if (!pick) continue;
         if (provider !== cfg.primaryProvider || pick.model !== cfg.primaryModel) {
-          setProviderConfig({ ...cfg, primaryProvider: provider, primaryModel: pick.model });
+          const next = { ...cfg, primaryProvider: provider, primaryModel: pick.model };
+          providerRef.current = next;
+          setProviderConfig(next);
         }
         if (announce && pick.model !== cfg.primaryModel) {
           say({
@@ -285,8 +289,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const runPipeline = useCallback(
     async (task: string) => {
       if (pipeline.running) return;
-      const cfg = providerRef.current;
-      const repoName = repoResult?.ok ? repoResult.repository?.fullName : "";
+      let activeRepoResult: RepoConnectionResult | null = null;
+      if (repoConfig.repoUrl.trim()) {
+        activeRepoResult = await testRepoFn({
+          data: { ...repoConfig, secrets: getUserSecrets() },
+        });
+        setRepoResult(activeRepoResult);
+      }
+      const repoName = activeRepoResult?.ok ? activeRepoResult.repository?.fullName : "";
       if (!repoName) {
         say({
           role: "assistant",
@@ -305,6 +315,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
+      const cfg = providerRef.current;
+      const backupModels = rankModels(
+        cfg.primaryProvider,
+        providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+        taskKind(task),
+      )
+        .filter((candidate) => candidate.model !== model)
+        .slice(0, 2)
+        .map((candidate) => candidate.model);
+      const fallbackProvider =
+        cfg.fallbackProvider !== "none" && cfg.fallbackModel
+          ? cfg.fallbackProvider
+          : backupModels[0]
+            ? cfg.primaryProvider
+            : "none";
+      const fallbackModel =
+        cfg.fallbackProvider !== "none" && cfg.fallbackModel
+          ? cfg.fallbackModel
+          : (backupModels[0] ?? "");
 
       setPipeline({ running: true, phase: "inspect", note: "" });
       setGitResult(null);
@@ -317,6 +346,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         // 1) Repository audit (reuse the existing one when available).
         let currentAudit = auditRef.current;
+        if (
+          currentAudit &&
+          (currentAudit.repository !== repoName || currentAudit.branch !== repoConfig.branch)
+        ) {
+          currentAudit = null;
+        }
         if (!currentAudit) {
           const s = step("فاحص المستودع", "قراءة ملفات المستودع");
           const res = await inspectFn({
@@ -349,14 +384,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             request: task,
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
-            fallbackProvider: cfg.fallbackProvider,
-            fallbackModel: cfg.fallbackModel,
+            backupModels,
+            fallbackProvider,
+            fallbackModel,
             secrets: getUserSecrets(),
           },
         });
         if (!planRes.ok || !planRes.plan) {
-          sPlan.fail(arabize(planRes.error ?? ""));
-          throw new Error(arabize(planRes.error ?? "المهندس ما قدرش يصاوب الخطة."));
+          const attempts = planRes.attempts
+            .map((attempt) => `${attempt.model}: ${arabize(attempt.detail)}`)
+            .join("\n");
+          const detail = attempts || arabize(planRes.error ?? "المهندس ما قدرش يصاوب الخطة.");
+          sPlan.fail(detail);
+          throw new Error(`المهندس ما قدرش يصاوب الخطة.\n${detail}`);
         }
         const newPlan = planRes.plan;
         setPlan(newPlan);
@@ -379,8 +419,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             stepOrders: newPlan.steps.map((st) => st.order),
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
-            fallbackProvider: cfg.fallbackProvider,
-            fallbackModel: cfg.fallbackModel,
+            fallbackProvider,
+            fallbackModel,
             secrets: getUserSecrets(),
           },
         });
@@ -424,8 +464,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             reviewers: ["code", "security", "qa"] as ("code" | "security" | "qa")[],
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
-            fallbackProvider: cfg.fallbackProvider,
-            fallbackModel: cfg.fallbackModel,
+            fallbackProvider,
+            fallbackModel,
             secrets: getUserSecrets(),
           },
         });
@@ -460,7 +500,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
 
         // 5) Git manager — only with write access.
-        const writeAccess = repoResult?.ok ? Boolean(repoResult.repository?.writeAccess) : false;
+        const writeAccess = activeRepoResult?.ok
+          ? Boolean(activeRepoResult.repository?.writeAccess)
+          : false;
         if (!writeAccess) {
           setPipeline({ running: false, phase: "done", note: "no_write" });
           say({
@@ -534,8 +576,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       pipeline.running,
       repoConfig.branch,
       repoConfig.repoUrl,
-      repoResult,
       reviewFn,
+      testRepoFn,
     ],
   );
 

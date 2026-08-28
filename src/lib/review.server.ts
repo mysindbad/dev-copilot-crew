@@ -204,6 +204,7 @@ async function runReviewer(
       link.model,
       `${meta.system}\nYou are READ-ONLY: you never modify code, you only report findings.\n${OUTPUT_RULES}\nChecklist you must answer: ${meta.checklist.join(" | ")}`,
       context,
+      { maxAttempts: 1, timeoutMs: 35_000 },
     );
     const ms = Date.now() - started;
     if (!res.ok || !res.text) {
