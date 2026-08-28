@@ -57,18 +57,12 @@ function score(provider: "gemini" | "openrouter", model: string, kind: TaskKind)
   return s;
 }
 
-/** Choose the best REAL model for a task, free models first. */
-export function pickModel(
+/** All usable REAL models, best first. */
+export function rankModels(
   provider: "gemini" | "openrouter",
   models: string[],
   kind: TaskKind,
-): ModelPick | null {
-  const ranked = models
-    .map((model) => ({ model, s: score(provider, model, kind), free: isFree(provider, model) }))
-    .filter((r) => r.s > -1000)
-    .sort((a, b) => b.s - a.s);
-  const best = ranked[0];
-  if (!best) return null;
+): ModelPick[] {
   const kindAr =
     kind === "code"
       ? "كتابة الكود"
@@ -77,11 +71,24 @@ export function pickModel(
         : kind === "review"
           ? "المراجعة"
           : "الحوار";
-  return {
-    model: best.model,
-    free: best.free,
-    reason: `اخترت «${best.model}» لأنه ${best.free ? "مجاني" : "المتاح الوحيد المناسب"} ومناسب لـ${kindAr}.`,
-  };
+  return models
+    .map((model) => ({ model, s: score(provider, model, kind), free: isFree(provider, model) }))
+    .filter((r) => r.s > -1000)
+    .sort((a, b) => b.s - a.s)
+    .map((r) => ({
+      model: r.model,
+      free: r.free,
+      reason: `اخترت «${r.model}» لأنه ${r.free ? "مجاني" : "المتاح الوحيد المناسب"} ومناسب لـ${kindAr}.`,
+    }));
+}
+
+/** Choose the best REAL model for a task, free models first. */
+export function pickModel(
+  provider: "gemini" | "openrouter",
+  models: string[],
+  kind: TaskKind,
+): ModelPick | null {
+  return rankModels(provider, models, kind)[0] ?? null;
 }
 
 /** Kind of work implied by the human's request, used to size the model. */
