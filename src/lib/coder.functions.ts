@@ -40,10 +40,10 @@ const PlanInput = z.object({
 const CoderInput = z.object({
   plan: PlanInput,
   stepOrders: z.array(z.number()).default([]),
-  primaryProvider: z.enum(["gemini", "openrouter", "lovable"]),
+  primaryProvider: z.enum(PROVIDER_IDS),
   primaryModel: z.string(),
   backupModels: z.array(z.string().min(1)).max(3).default([]),
-  fallbackProvider: z.enum(["gemini", "openrouter", "lovable", "none"]),
+  fallbackProvider: z.enum(FALLBACK_PROVIDER_IDS),
   fallbackModel: z.string(),
   secrets: SecretsPayload,
 });
