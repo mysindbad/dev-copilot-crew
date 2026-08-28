@@ -491,16 +491,5 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
 }
 
 function extractJson(text: string): unknown {
-  const cleaned = text
-    .replace(/^\s*```(?:json)?/i, "")
-    .replace(/```\s*$/, "")
-    .trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
-    throw new Error("Model output was not valid JSON.");
-  }
+  return extractJsonLoose(text);
 }

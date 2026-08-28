@@ -8,6 +8,7 @@ import type {
 import type { RepositoryAudit } from "./inspection.types";
 import { recallAudit } from "./project-memory.server";
 import { callLlm, hasProviderKey, redact } from "./llm.server";
+import { extractJsonLoose } from "./json-extract";
 
 const SYSTEM = `You are the Architect Agent of a multi-agent software engineering platform.
 You are READ-ONLY: you never write files and never claim to have changed anything.
@@ -62,18 +63,7 @@ const PlanSchema = z.object({
 });
 
 function extractJson(text: string): unknown {
-  const cleaned = text
-    .replace(/^\s*```(?:json)?/i, "")
-    .replace(/```\s*$/, "")
-    .trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
-    throw new Error("Model output was not valid JSON.");
-  }
+  return extractJsonLoose(text);
 }
 
 function buildFacts(audit: RepositoryAudit): string[] {
