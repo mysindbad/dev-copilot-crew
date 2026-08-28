@@ -14,6 +14,9 @@ export const SecretsPayload = z
     GITHUB_TOKEN: z.string().max(500).optional(),
     GEMINI_API_KEY: z.string().max(500).optional(),
     OPENROUTER_API_KEY: z.string().max(500).optional(),
+    GROQ_API_KEY: z.string().max(500).optional(),
+    MISTRAL_API_KEY: z.string().max(500).optional(),
+    HF_API_KEY: z.string().max(500).optional(),
   })
   .optional();
 
@@ -21,9 +24,19 @@ export type UserSecrets = {
   GITHUB_TOKEN?: string;
   GEMINI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  GROQ_API_KEY?: string;
+  MISTRAL_API_KEY?: string;
+  HF_API_KEY?: string;
 };
 
-export const SECRET_KEYS = ["GITHUB_TOKEN", "GEMINI_API_KEY", "OPENROUTER_API_KEY"] as const;
+export const SECRET_KEYS = [
+  "GITHUB_TOKEN",
+  "GEMINI_API_KEY",
+  "OPENROUTER_API_KEY",
+  "GROQ_API_KEY",
+  "MISTRAL_API_KEY",
+  "HF_API_KEY",
+] as const;
 
 const STORAGE_KEY = "aidt.secrets.v1";
 
