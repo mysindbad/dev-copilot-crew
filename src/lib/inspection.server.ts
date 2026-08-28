@@ -720,8 +720,11 @@ export async function inspectRepositoryReal(input: {
   ).length;
 
 
+  const owner = parsed!.owner;
+  const repoName = parsed!.repo;
   const contents = new Map<string, string>();
   const unreadable: string[] = [];
+
 
   async function readOne(path: string): Promise<"ok" | "fail" | "abort"> {
     try {
