@@ -30,6 +30,7 @@ export function redact(message: string): string {
 }
 
 export function hasProviderKey(provider: ProviderId): boolean {
+  if (provider === "lovable") return Boolean(process.env["LOVABLE_API_KEY"]);
   return provider === "gemini"
     ? Boolean(getSecret("GEMINI_API_KEY"))
     : Boolean(getSecret("OPENROUTER_API_KEY"));
@@ -70,6 +71,41 @@ async function callLlmOnce(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    if (provider === "lovable") {
+      const key = process.env["LOVABLE_API_KEY"];
+      if (!key) return { ok: false, error: "Lovable AI is not configured." };
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Lovable-API-Key": key,
+          "X-Lovable-AIG-SDK": "fetch",
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        const friendly =
+          res.status === 402
+            ? "نفدات أرصدة الذكاء الاصطناعي ديال المساحة. زيد أرصدة من إعدادات Lovable."
+            : res.status === 429
+              ? "تجاوزنا حد الاستعمال مؤقتًا. استنى شوية وعاود."
+              : redact(`Lovable AI ${res.status}: ${body}`);
+        return { ok: false, status: res.status, error: friendly };
+      }
+      const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      const text = json.choices?.[0]?.message?.content?.trim();
+      if (!text) return { ok: false, status: res.status, error: "Lovable AI returned no content." };
+      return { ok: true, text, status: res.status };
+    }
+
     if (provider === "gemini") {
       const key = getSecret("GEMINI_API_KEY");
       if (!key) return { ok: false, error: "GEMINI_API_KEY is not configured." };

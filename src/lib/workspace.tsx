@@ -34,9 +34,9 @@ export interface RepoConfig {
 }
 
 export interface ProviderConfig {
-  primaryProvider: "gemini" | "openrouter";
+  primaryProvider: "gemini" | "openrouter" | "lovable";
   primaryModel: string;
-  fallbackProvider: "gemini" | "openrouter" | "none";
+  fallbackProvider: "gemini" | "openrouter" | "lovable" | "none";
   fallbackModel: string;
   freeOnly: boolean;
 }
@@ -84,10 +84,10 @@ interface Ctx {
   changeSet: ChangeSet | null;
   review: ReviewBoardResult | null;
   gitResult: GitResult | null;
-  providerStatuses: Partial<Record<"gemini" | "openrouter", ProviderStatus>>;
+  providerStatuses: Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>;
   setProviderStatus: (s: ProviderStatus) => void;
-  keyStatus: { github: boolean; gemini: boolean; openrouter: boolean };
-  serverSecrets: { github: boolean; gemini: boolean; openrouter: boolean };
+  keyStatus: { github: boolean; gemini: boolean; openrouter: boolean; lovable: boolean };
+  serverSecrets: { github: boolean; gemini: boolean; openrouter: boolean; lovable: boolean };
   refreshSecrets: () => void;
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
@@ -125,7 +125,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const [repoConfig, setRepoConfig] = useState<RepoConfig>({ repoUrl: "", branch: "main" });
   const [providerConfig, setProviderConfig] = useState<ProviderConfig>({
-    primaryProvider: "gemini",
+    primaryProvider: "lovable",
     primaryModel: "",
     fallbackProvider: "none",
     fallbackModel: "",
@@ -138,12 +138,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [review, setReview] = useState<ReviewBoardResult | null>(null);
   const [gitResult, setGitResult] = useState<GitResult | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
-    Partial<Record<"gemini" | "openrouter", ProviderStatus>>
+    Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>
   >({});
   const [serverSecrets, setServerSecrets] = useState({
     github: false,
     gemini: false,
     openrouter: false,
+    lovable: false,
   });
   const [secretTick, setSecretTick] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -163,7 +164,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const providerStatusRef = useRef(providerStatuses);
   providerStatusRef.current = providerStatuses;
 
-  function forgetUnavailableModel(provider: "gemini" | "openrouter", model: string) {
+  function forgetUnavailableModel(provider: "gemini" | "openrouter" | "lovable", model: string) {
     setProviderStatuses((prev) => {
       const current = prev[provider];
       if (!current) return prev;
@@ -207,6 +208,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         github: Boolean(s.github),
         gemini: Boolean(s.gemini),
         openrouter: Boolean(s.openrouter),
+        lovable: Boolean(s.lovable),
       }),
     );
   }, [secretsStatusFn]);
@@ -220,6 +222,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     github: Boolean(serverSecrets.github || userSecrets.GITHUB_TOKEN),
     gemini: Boolean(serverSecrets.gemini || userSecrets.GEMINI_API_KEY),
     openrouter: Boolean(serverSecrets.openrouter || userSecrets.OPENROUTER_API_KEY),
+    lovable: serverSecrets.lovable,
   };
 
   function say(entry: Omit<ChatEntry, "id">) {
@@ -240,8 +243,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const ensureModel = useCallback(
     async (kind: TaskKind = "plan", announce = false): Promise<string> => {
       const cfg = providerRef.current;
-      const order: ("gemini" | "openrouter")[] =
-        cfg.primaryProvider === "gemini" ? ["gemini", "openrouter"] : ["openrouter", "gemini"];
+      const all: ("gemini" | "openrouter" | "lovable")[] = ["lovable", "gemini", "openrouter"];
+      const order = [
+        cfg.primaryProvider,
+        ...all.filter((p) => p !== cfg.primaryProvider),
+      ] as ("gemini" | "openrouter" | "lovable")[];
 
       for (const provider of order) {
         let status = providerStatusRef.current[provider];
@@ -262,7 +268,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             role: "assistant",
             agent: "مدير المشروع",
             model: pick.model,
-            content: `${pick.reason} (المزوّد: ${provider === "gemini" ? "Gemini" : "OpenRouter"})`,
+            content: `${pick.reason} (المزوّد: ${provider === "gemini" ? "Gemini" : provider === "openrouter" ? "OpenRouter" : "الذكاء المدمج"})`,
           });
         }
         return pick.model;
@@ -311,7 +317,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: `ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام.\nجيب مفتاح مجاني من Gemini: ${KEY_SOURCES.gemini}\nولا من OpenRouter (فيه نماذج free): ${KEY_SOURCES.openrouter}\nومن بعد دخّلو ف«الإعدادات».`,
+          content: "ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام دابا. عاود جرّب بعد شوية.",
         });
         return;
       }
@@ -617,7 +623,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: `باش نقدر نهضر معاك خاصني مفتاح ذكاء اصطناعي.\nمفتاح مجاني من Google Gemini: ${KEY_SOURCES.gemini}\nولا OpenRouter (فيه نماذج :free): ${KEY_SOURCES.openrouter}\nدخّلو ف«الإعدادات» (الأيقونة فوق) ونبداو.`,
+          content: "ما قدرتش نجاوب دابا: الذكاء الاصطناعي ماشي متاح. عاود جرّب بعد شوية، ولا زيد مفتاح ديالك ف«الإعدادات».",
         });
         return;
       }
@@ -775,6 +781,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       keyStatus.github,
       keyStatus.gemini,
       keyStatus.openrouter,
+      keyStatus.lovable,
       serverSecrets,
       settingsOpen,
       messages,

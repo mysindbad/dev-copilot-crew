@@ -17,14 +17,14 @@ export interface ModelPick {
 }
 
 /** OpenRouter marks free routes with a ":free" suffix. */
-function isFree(provider: "gemini" | "openrouter", model: string): boolean {
+function isFree(provider: "gemini" | "openrouter" | "lovable", model: string): boolean {
   if (provider === "openrouter") return model.endsWith(":free");
   // Gemini pricing depends on the account and quota. A model name alone does
   // not prove that the request is free.
   return false;
 }
 
-function score(provider: "gemini" | "openrouter", model: string, kind: TaskKind): number {
+function score(provider: "gemini" | "openrouter" | "lovable", model: string, kind: TaskKind): number {
   const m = model.toLowerCase();
   let s = 0;
   // Gemini may still list legacy models that reject requests from new users.
@@ -36,7 +36,7 @@ function score(provider: "gemini" | "openrouter", model: string, kind: TaskKind)
 
   // Prefer the newest callable Gemini generation instead of relying on the
   // provider's alphabetical model-list order.
-  if (provider === "gemini") {
+  if (provider === "gemini" || provider === "lovable") {
     if (/gemini-3\.7/.test(m)) s += 90;
     else if (/gemini-3\.6/.test(m)) s += 80;
     else if (/gemini-3\.5/.test(m)) s += 70;
@@ -59,7 +59,7 @@ function score(provider: "gemini" | "openrouter", model: string, kind: TaskKind)
 
 /** All usable REAL models, best first. */
 export function rankModels(
-  provider: "gemini" | "openrouter",
+  provider: "gemini" | "openrouter" | "lovable",
   models: string[],
   kind: TaskKind,
 ): ModelPick[] {
@@ -78,13 +78,13 @@ export function rankModels(
     .map((r) => ({
       model: r.model,
       free: r.free,
-      reason: `اخترت «${r.model}» لأنه ${r.free ? "موسوم كمجاني عند المزوّد" : "متاح ومناسب"} لـ${kindAr}.`,
+      reason: `اخترت «${r.model}» لأنه ${provider === "lovable" ? "مدمج فالتطبيق وما كيحتاجش مفتاح" : r.free ? "موسوم كمجاني عند المزوّد" : "متاح ومناسب"} لـ${kindAr}.`,
     }));
 }
 
 /** Choose the best REAL model for a task, free models first. */
 export function pickModel(
-  provider: "gemini" | "openrouter",
+  provider: "gemini" | "openrouter" | "lovable",
   models: string[],
   kind: TaskKind,
 ): ModelPick | null {

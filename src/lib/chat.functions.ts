@@ -26,10 +26,10 @@ const Input = z.object({
     changeSetSummary: z.string().default(""),
     reviewGate: z.string().default(""),
   }),
-  primaryProvider: z.enum(["gemini", "openrouter"]),
+  primaryProvider: z.enum(["gemini", "openrouter", "lovable"]),
   primaryModel: z.string().default(""),
   backupModels: z.array(z.string().min(1)).max(4).default([]),
-  fallbackProvider: z.enum(["gemini", "openrouter", "none"]).default("none"),
+  fallbackProvider: z.enum(["gemini", "openrouter", "lovable", "none"]).default("none"),
   fallbackModel: z.string().default(""),
   secrets: SecretsPayload,
 });

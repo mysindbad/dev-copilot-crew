@@ -219,9 +219,16 @@ export const testRepositoryConnection = createServerFn({ method: "POST" })
     };
     });
   });
+/** Built-in Lovable AI models — no user key needed. */
+export const LOVABLE_MODELS = [
+  "google/gemini-3.7-flash",
+  "google/gemini-3.5-flash",
+  "google/gemini-3.1-flash-lite",
+] as const;
+
 
 export interface ProviderStatus {
-  provider: "gemini" | "openrouter";
+  provider: "gemini" | "openrouter" | "lovable";
   configured: boolean;
   ok: boolean;
   detail: string;
@@ -229,7 +236,7 @@ export interface ProviderStatus {
 }
 
 const ProviderInput = z.object({
-  provider: z.enum(["gemini", "openrouter"]),
+  provider: z.enum(["gemini", "openrouter", "lovable"]),
   secrets: SecretsPayload,
 });
 
@@ -238,6 +245,19 @@ export const testProvider = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ProviderStatus> => {
     const { withSecrets, getSecret } = await import("./secrets.server");
     return withSecrets(data.secrets, async () => {
+    if (data.provider === "lovable") {
+      const configured = Boolean(process.env["LOVABLE_API_KEY"]);
+      return {
+        provider: "lovable" as const,
+        configured,
+        ok: configured,
+        detail: configured
+          ? "الذكاء الاصطناعي المدمج خدّام بلا مفتاح."
+          : "الذكاء الاصطناعي المدمج ماشي مفعّل.",
+        models: configured ? LOVABLE_MODELS.slice() : [],
+      };
+    }
+
     if (data.provider === "gemini") {
       const key = getSecret("GEMINI_API_KEY");
       if (!key)
@@ -326,4 +346,5 @@ export const getSecretsStatus = createServerFn({ method: "GET" }).handler(async 
   github: Boolean(process.env["GITHUB_TOKEN"]),
   gemini: Boolean(process.env["GEMINI_API_KEY"]),
   openrouter: Boolean(process.env["OPENROUTER_API_KEY"]),
+  lovable: Boolean(process.env["LOVABLE_API_KEY"]),
 }));
