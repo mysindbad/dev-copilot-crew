@@ -17,7 +17,6 @@ export interface LlmCallResult {
 export interface LlmCallOptions {
   /** Conversational requests should fail over quickly instead of blocking the UI. */
   maxAttempts?: 1 | 2;
-  timeoutMs?: number;
 }
 
 /** Remove anything that could resemble a credential from a provider message. */
@@ -51,7 +50,7 @@ export async function callLlm(
 ): Promise<LlmCallResult> {
   const maxAttempts = options.maxAttempts ?? 2;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const res = await callLlmOnce(provider, model, system, user, options.timeoutMs);
+    const res = await callLlmOnce(provider, model, system, user);
     const transient =
       res.status === 503 || res.status === 429 || res.status === 524 || (res.status ?? 0) >= 500;
     if (res.ok || !transient || attempt === maxAttempts - 1) return res;
@@ -65,10 +64,7 @@ async function callLlmOnce(
   model: string,
   system: string,
   user: string,
-  timeoutMs?: number,
 ): Promise<LlmCallResult> {
-  const controller = timeoutMs ? new AbortController() : null;
-  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
     if (provider === "gemini") {
       const key = getSecret("GEMINI_API_KEY");
@@ -77,7 +73,6 @@ async function callLlmOnce(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: "POST",
-          signal: controller?.signal,
           headers: { "Content-Type": "application/json", "x-goog-api-key": key },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
@@ -112,7 +107,6 @@ async function callLlmOnce(
     if (!key) return { ok: false, error: "OPENROUTER_API_KEY is not configured." };
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      signal: controller?.signal,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
         model,
@@ -140,15 +134,6 @@ async function callLlmOnce(
       };
     return { ok: true, text, status: res.status };
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      return {
-        ok: false,
-        status: 524,
-        error: "النموذج تأخر بزاف فالجواب، دزنا للنموذج الاحتياطي.",
-      };
-    }
     return { ok: false, error: redact(error instanceof Error ? error.message : "Network error.") };
-  } finally {
-    if (timeout) clearTimeout(timeout);
   }
 }

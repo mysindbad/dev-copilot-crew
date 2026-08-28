@@ -137,7 +137,6 @@ export async function runTeamLeadTurn(input: ChatInput): Promise<ChatResult> {
     // below moves to one of the already validated backup models instead.
     const res = await callLlm(c.provider, c.model, system, user, {
       maxAttempts: 1,
-      timeoutMs: 30_000,
     });
     const ms = Date.now() - started;
     if (!res.ok || !res.text) {
