@@ -19,9 +19,9 @@ export interface ModelPick {
 /** OpenRouter marks free routes with a ":free" suffix. */
 function isFree(provider: "gemini" | "openrouter", model: string): boolean {
   if (provider === "openrouter") return model.endsWith(":free");
-  // Google's Gemini API has a free tier; the flash / flash-lite family is the
-  // part of it that is free to call with a personal API key.
-  return /flash/i.test(model);
+  // Gemini pricing depends on the account and quota. A model name alone does
+  // not prove that the request is free.
+  return false;
 }
 
 function score(provider: "gemini" | "openrouter", model: string, kind: TaskKind): number {
@@ -78,7 +78,7 @@ export function rankModels(
     .map((r) => ({
       model: r.model,
       free: r.free,
-      reason: `اخترت «${r.model}» لأنه ${r.free ? "مجاني" : "المتاح الوحيد المناسب"} ومناسب لـ${kindAr}.`,
+      reason: `اخترت «${r.model}» لأنه ${r.free ? "موسوم كمجاني عند المزوّد" : "متاح ومناسب"} لـ${kindAr}.`,
     }));
 }
 

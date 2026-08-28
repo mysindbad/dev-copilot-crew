@@ -90,7 +90,9 @@ export function TeamChat() {
                 <div className="mt-1 text-sm">{m.suggestedTask}</div>
                 <button
                   disabled={pipeline.running}
-                  onClick={() => runPipeline(m.suggestedTask!)}
+                  onClick={() => {
+                    if (m.suggestedTask) void runPipeline(m.suggestedTask);
+                  }}
                   className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
                 >
                   <Sparkles className="size-3.5" />

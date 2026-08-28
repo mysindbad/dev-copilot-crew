@@ -324,6 +324,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         .filter((candidate) => candidate.model !== model)
         .slice(0, 2)
         .map((candidate) => candidate.model);
+      const fallbackProvider =
+        cfg.fallbackProvider !== "none" && cfg.fallbackModel
+          ? cfg.fallbackProvider
+          : backupModels[0]
+            ? cfg.primaryProvider
+            : "none";
+      const fallbackModel =
+        cfg.fallbackProvider !== "none" && cfg.fallbackModel
+          ? cfg.fallbackModel
+          : (backupModels[0] ?? "");
 
       setPipeline({ running: true, phase: "inspect", note: "" });
       setGitResult(null);
@@ -336,6 +346,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         // 1) Repository audit (reuse the existing one when available).
         let currentAudit = auditRef.current;
+        if (
+          currentAudit &&
+          (currentAudit.repository !== repoName || currentAudit.branch !== repoConfig.branch)
+        ) {
+          currentAudit = null;
+        }
         if (!currentAudit) {
           const s = step("فاحص المستودع", "قراءة ملفات المستودع");
           const res = await inspectFn({
@@ -369,8 +385,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
             backupModels,
-            fallbackProvider: cfg.fallbackProvider,
-            fallbackModel: cfg.fallbackModel,
+            fallbackProvider,
+            fallbackModel,
             secrets: getUserSecrets(),
           },
         });
@@ -403,8 +419,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             stepOrders: newPlan.steps.map((st) => st.order),
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
-            fallbackProvider: cfg.fallbackProvider,
-            fallbackModel: cfg.fallbackModel,
+            fallbackProvider,
+            fallbackModel,
             secrets: getUserSecrets(),
           },
         });
@@ -448,8 +464,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             reviewers: ["code", "security", "qa"] as ("code" | "security" | "qa")[],
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
-            fallbackProvider: cfg.fallbackProvider,
-            fallbackModel: cfg.fallbackModel,
+            fallbackProvider,
+            fallbackModel,
             secrets: getUserSecrets(),
           },
         });
