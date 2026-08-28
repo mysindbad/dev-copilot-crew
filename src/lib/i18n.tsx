@@ -75,7 +75,6 @@ const DICT = {
     ar: "المهندس المعماري يخطط من التقرير الحقيقي، والمبرمج ينفّذ الخطوات المعتمدة. مدير Git وحده يكتب على GitHub، وعلى فرع جديد فقط وبعد موافقتك. لا يوجد أي نشاط وهمي هنا.",
     en: "The Architect plans from the real audit and the Coder implements approved steps. Only the Git Manager writes to GitHub, on a new branch after your approval.",
   },
-  "team.roadmap": { ar: "خارطة الطريق", en: "Roadmap" },
   "team.done": { ar: "منجز", en: "done" },
   "team.planned": { ar: "مبرمج", en: "planned" },
 
