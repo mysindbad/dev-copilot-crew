@@ -308,7 +308,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             role: "assistant",
             agent: "مدير المشروع",
             model: pick.model,
-            content: `${pick.reason} (المزوّد: ${provider === "gemini" ? "Gemini" : provider === "openrouter" ? "OpenRouter" : "الذكاء المدمج"})`,
+            content: `${pick.reason} (المزوّد: ${PROVIDER_LABEL[provider]})`,
           });
         }
         return pick.model;
