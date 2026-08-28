@@ -308,9 +308,6 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
         detail: `${route.provider} API key is not configured.`,
         ms: 0,
       });
-      // A provider-wide quota denial will also reject its sibling models. Do
-      // not burn more requests on the same provider in this run.
-      if (res.status === 429) break;
       continue;
     }
     const res = await callLlm(route.provider, route.model, SYSTEM, promptLines.join("\n"), {
@@ -326,6 +323,15 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
         detail: res.error ?? "Provider call failed.",
         ms,
       });
+      // A provider-wide quota denial will also reject its sibling models. Do
+      // not burn more requests on the same provider in this run; a configured
+      // provider fallback remains available on a later route.
+      if (res.status === 429) {
+        const nextDifferentProvider = routes.findIndex(
+          (candidate, index) => index > routes.indexOf(route) && candidate.provider !== route.provider,
+        );
+        if (nextDifferentProvider < 0) break;
+      }
       continue;
     }
     try {
