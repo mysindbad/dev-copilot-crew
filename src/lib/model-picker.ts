@@ -1,3 +1,5 @@
+import type { ProviderId } from "./architect.types";
+
 /**
  * Automatic model selection.
  *
