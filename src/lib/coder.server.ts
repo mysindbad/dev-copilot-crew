@@ -322,9 +322,14 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
       const files: StagedFile[] = [];
 
       for (const item of out.files) {
-        const path = item.path.trim().replace(/^\.\//, "");
-        if (!readable.includes(path)) {
-          runBlocked.push({ path, reason: "outside the approved plan scope" });
+        const path = item.path.trim().replace(/^\.\//, "").replace(/^\/+/, "");
+        if (!readable.includes(path) && !(await admitLazily(path))) {
+          runBlocked.push({
+            path,
+            reason: allowed.includes(path)
+              ? "could not be read at this commit"
+              : "outside the approved plan scope",
+          });
           continue;
         }
         const action = normalizeAction(item.action);
