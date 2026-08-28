@@ -18,7 +18,10 @@ export interface LlmCallOptions {
   /** Conversational requests should fail over quickly instead of blocking the UI. */
   maxAttempts?: 1 | 2;
   timeoutMs?: number;
+  /** Higher values make the answer sound more human/conversational. */
+  temperature?: number;
 }
+
 
 /** Remove anything that could resemble a credential from a provider message. */
 export function redact(message: string): string {
