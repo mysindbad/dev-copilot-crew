@@ -188,6 +188,31 @@ export function SettingsDrawer() {
             <h3 className="text-sm font-semibold">المفاتيح</h3>
           </div>
 
+          {/* Free key guides */}
+          <div className="mt-3 space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+            <p className="text-xs font-semibold text-primary">كيفاش نجيب مفتاح مجاني؟ (روابط رسمية)</p>
+            <ol className="space-y-1.5 text-[0.72rem] leading-relaxed text-muted-foreground">
+              <li>
+                <span className="font-medium text-foreground">Gemini (مجاني، الأسهل):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.gemini} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">aistudio.google.com/apikey</a>
+                {" "}2) سجّل بحساب Google 3) كليك «Create API key» 4) كوبييه وحطّو لتحت.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">OpenRouter (مجاني، فيه نماذج :free):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.openrouter} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">openrouter.ai/settings/keys</a>
+                {" "}2) سجّل الدخول 3) «Create Key» 4) كوبييه وحطّو لتحت.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">GitHub (باش نكتبو الكود):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.github} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">github.com/settings/tokens</a>
+                {" "}2) «Generate new token (classic)» 3) فعّل صلاحية repo 4) كوبييه وحطّو لتحت.
+              </li>
+            </ol>
+            <p className="text-[0.68rem] text-muted-foreground">
+              هاد الروابط رسمية من Google / OpenRouter / GitHub — مفاتيحك كتبقى فالمتصفح ديالك غير نتا.
+            </p>
+          </div>
+
           <div className="mt-3 space-y-3">
             {SECRET_KEYS.map((key) => {
               const meta = META[key];
