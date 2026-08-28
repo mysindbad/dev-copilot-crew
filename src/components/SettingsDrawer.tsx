@@ -266,9 +266,9 @@ export function SettingsDrawer() {
         </section>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          حالة المفاتيح: GitHub {keyStatus.github ? "✓" : "✗"} · Gemini {keyStatus.gemini ? "✓" : "✗"} ·
-          OpenRouter {keyStatus.openrouter ? "✓" : "✗"} — النموذج كيتختار أوتوماتيكيًا من المفاتيح
-          المتوفرة، والمجاني عندو الأولوية.
+          الذكاء الاصطناعي المدمج {keyStatus.lovable ? "✓ خدّام بلا مفتاح" : "✗"} — ما خاصك حتى
+          مفتاح باش تخدم. مفاتيحك (اختيارية): GitHub {keyStatus.github ? "✓" : "✗"} · Gemini{" "}
+          {keyStatus.gemini ? "✓" : "✗"} · OpenRouter {keyStatus.openrouter ? "✓" : "✗"}.
         </p>
 
         <button

@@ -86,8 +86,8 @@ interface Ctx {
   gitResult: GitResult | null;
   providerStatuses: Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>;
   setProviderStatus: (s: ProviderStatus) => void;
-  keyStatus: { github: boolean; gemini: boolean; openrouter: boolean };
-  serverSecrets: { github: boolean; gemini: boolean; openrouter: boolean };
+  keyStatus: { github: boolean; gemini: boolean; openrouter: boolean; lovable: boolean };
+  serverSecrets: { github: boolean; gemini: boolean; openrouter: boolean; lovable: boolean };
   refreshSecrets: () => void;
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
@@ -144,6 +144,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     github: false,
     gemini: false,
     openrouter: false,
+    lovable: false,
   });
   const [secretTick, setSecretTick] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -207,6 +208,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         github: Boolean(s.github),
         gemini: Boolean(s.gemini),
         openrouter: Boolean(s.openrouter),
+        lovable: Boolean(s.lovable),
       }),
     );
   }, [secretsStatusFn]);
@@ -220,6 +222,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     github: Boolean(serverSecrets.github || userSecrets.GITHUB_TOKEN),
     gemini: Boolean(serverSecrets.gemini || userSecrets.GEMINI_API_KEY),
     openrouter: Boolean(serverSecrets.openrouter || userSecrets.OPENROUTER_API_KEY),
+    lovable: serverSecrets.lovable,
   };
 
   function say(entry: Omit<ChatEntry, "id">) {
@@ -314,7 +317,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: `ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام.\nجيب مفتاح مجاني من Gemini: ${KEY_SOURCES.gemini}\nولا من OpenRouter (فيه نماذج free): ${KEY_SOURCES.openrouter}\nومن بعد دخّلو ف«الإعدادات».`,
+          content: "ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام دابا. عاود جرّب بعد شوية.",
         });
         return;
       }
@@ -620,7 +623,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: `باش نقدر نهضر معاك خاصني مفتاح ذكاء اصطناعي.\nمفتاح مجاني من Google Gemini: ${KEY_SOURCES.gemini}\nولا OpenRouter (فيه نماذج :free): ${KEY_SOURCES.openrouter}\nدخّلو ف«الإعدادات» (الأيقونة فوق) ونبداو.`,
+          content: "ما قدرتش نجاوب دابا: الذكاء الاصطناعي ماشي متاح. عاود جرّب بعد شوية، ولا زيد مفتاح ديالك ف«الإعدادات».",
         });
         return;
       }
@@ -778,6 +781,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       keyStatus.github,
       keyStatus.gemini,
       keyStatus.openrouter,
+      keyStatus.lovable,
       serverSecrets,
       settingsOpen,
       messages,
