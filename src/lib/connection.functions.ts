@@ -238,6 +238,19 @@ export const testProvider = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ProviderStatus> => {
     const { withSecrets, getSecret } = await import("./secrets.server");
     return withSecrets(data.secrets, async () => {
+    if (data.provider === "lovable") {
+      const configured = Boolean(process.env["LOVABLE_API_KEY"]);
+      return {
+        provider: "lovable" as const,
+        configured,
+        ok: configured,
+        detail: configured
+          ? "الذكاء الاصطناعي المدمج خدّام بلا مفتاح."
+          : "الذكاء الاصطناعي المدمج ماشي مفعّل.",
+        models: configured ? LOVABLE_MODELS.slice() : [],
+      };
+    }
+
     if (data.provider === "gemini") {
       const key = getSecret("GEMINI_API_KEY");
       if (!key)
