@@ -24,7 +24,9 @@ import { recallAudit } from "./project-memory.server";
  * GitHub: there is no commit, no branch creation and no push in this phase.
  */
 
-const MAX_TARGET_FILES = 6;
+const MAX_TARGET_FILES = 10;
+/** Extra files the model may pull in on demand, still inside the approved plan. */
+const MAX_LAZY_FILES = 6;
 const MAX_READ_BYTES = 120_000;
 const MAX_OUTPUT_BYTES = 120_000;
 
