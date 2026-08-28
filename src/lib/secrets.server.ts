@@ -9,7 +9,13 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * of the handler, and are never logged, cached or returned to the browser.
  */
 
-export type SecretName = "GITHUB_TOKEN" | "GEMINI_API_KEY" | "OPENROUTER_API_KEY";
+export type SecretName =
+  | "GITHUB_TOKEN"
+  | "GEMINI_API_KEY"
+  | "OPENROUTER_API_KEY"
+  | "GROQ_API_KEY"
+  | "MISTRAL_API_KEY"
+  | "HF_API_KEY";
 
 export type SecretOverrides = { [K in SecretName]?: string | undefined };
 

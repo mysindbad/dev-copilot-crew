@@ -1,15 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { SecretsPayload } from "./user-secrets";
+import { PROVIDER_IDS, FALLBACK_PROVIDER_IDS } from "./architect.types";
 import type { ArchitectResult } from "./architect.types";
 
 const ArchitectInput = z.object({
   projectId: z.string().min(1),
   request: z.string().min(8),
-  primaryProvider: z.enum(["gemini", "openrouter", "lovable"]),
+  primaryProvider: z.enum(PROVIDER_IDS),
   primaryModel: z.string(),
   backupModels: z.array(z.string().min(1)).max(3).default([]),
-  fallbackProvider: z.enum(["gemini", "openrouter", "lovable", "none"]),
+  fallbackProvider: z.enum(FALLBACK_PROVIDER_IDS),
   fallbackModel: z.string(),
   secrets: SecretsPayload,
 });

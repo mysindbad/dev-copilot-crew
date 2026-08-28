@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { SecretsPayload } from "./user-secrets";
+import { PROVIDER_IDS, FALLBACK_PROVIDER_IDS } from "./architect.types";
 import type { ReviewBoardResult } from "./review.types";
 
 const Input = z.object({
@@ -24,9 +25,9 @@ const Input = z.object({
     )
     .min(1),
   reviewers: z.array(z.enum(["code", "security", "qa"])).default([]),
-  primaryProvider: z.enum(["gemini", "openrouter", "lovable"]),
+  primaryProvider: z.enum(PROVIDER_IDS),
   primaryModel: z.string().min(1),
-  fallbackProvider: z.enum(["gemini", "openrouter", "lovable", "none"]).default("none"),
+  fallbackProvider: z.enum(FALLBACK_PROVIDER_IDS).default("none"),
   fallbackModel: z.string().default(""),
   secrets: SecretsPayload,
 });

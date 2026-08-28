@@ -47,6 +47,24 @@ const META: Record<Key, { title: string; hint: string; placeholder: string; link
     placeholder: "sk-or-…",
     link: KEY_SOURCES.openrouter,
   },
+  GROQ_API_KEY: {
+    title: "مفتاح Groq (مجاني، الأسرع)",
+    hint: "مجاني دائم وبلا بطاقة بنكية. سريع بزاف — مزيان للمدير.",
+    placeholder: "gsk_…",
+    link: KEY_SOURCES.groq,
+  },
+  MISTRAL_API_KEY: {
+    title: "مفتاح Mistral AI (مجاني)",
+    hint: "10$ شهريا مجانا، بلا بطاقة. نماذج قوية بزاف.",
+    placeholder: "…",
+    link: KEY_SOURCES.mistral,
+  },
+  HF_API_KEY: {
+    title: "مفتاح Hugging Face (مجاني)",
+    hint: "كيعطي وصول لآلاف النماذج، فيها نماذج :free.",
+    placeholder: "hf_…",
+    link: KEY_SOURCES.huggingface,
+  },
 };
 
 /** Right-side settings drawer: repository, token and provider keys in one place. */
@@ -105,6 +123,9 @@ export function SettingsDrawer() {
     GITHUB_TOKEN: serverSecrets.github,
     GEMINI_API_KEY: serverSecrets.gemini,
     OPENROUTER_API_KEY: serverSecrets.openrouter,
+    GROQ_API_KEY: serverSecrets.groq,
+    MISTRAL_API_KEY: serverSecrets.mistral,
+    HF_API_KEY: serverSecrets.huggingface,
   };
 
   return (
@@ -207,9 +228,24 @@ export function SettingsDrawer() {
                 1) سير لـ <a href={KEY_SOURCES.github} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">github.com/settings/tokens</a>
                 {" "}2) «Generate new token (classic)» 3) فعّل صلاحية repo 4) كوبييه وحطّو لتحت.
               </li>
+              <li>
+                <span className="font-medium text-foreground">Groq (مجاني، الأسرع 🔥):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.groq} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">console.groq.com/keys</a>
+                {" "}2) سجّل بحساب Google/GitHub 3) «Create API Key» 4) كوبييه وحطّو لتحت.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Mistral AI (10$ مجانا 🇫🇷):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.mistral} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">console.mistral.ai/api-keys</a>
+                {" "}2) سجّل 3) «Create new key» 4) كوبييه وحطّو لتحت.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Hugging Face (آلاف النماذج 🤗):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.huggingface} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">huggingface.co/settings/tokens</a>
+                {" "}2) سجّل 3) «New token» بصلاحية Read 4) كوبييه وحطّو لتحت.
+              </li>
             </ol>
             <p className="text-[0.68rem] text-muted-foreground">
-              هاد الروابط رسمية من Google / OpenRouter / GitHub — مفاتيحك كتبقى فالمتصفح ديالك غير نتا.
+              هاد الروابط رسمية من Google / OpenRouter / Groq / Mistral / Hugging Face / GitHub — مفاتيحك كتبقى فالمتصفح ديالك غير نتا.
             </p>
           </div>
 
@@ -293,8 +329,9 @@ export function SettingsDrawer() {
         <p className="mt-4 text-xs text-muted-foreground">
           وضع «مجاني 100%» مفعّل: التطبيق كيخدم غير بمفاتيحك المجانية وما كيستهلك حتى رصيد.
           مفاتيحك: GitHub {keyStatus.github ? "✓" : "✗"} · Gemini {keyStatus.gemini ? "✓" : "✗"} ·
-          OpenRouter {keyStatus.openrouter ? "✓" : "✗"}.
-          {!keyStatus.gemini && !keyStatus.openrouter
+          OpenRouter {keyStatus.openrouter ? "✓" : "✗"} · Groq {keyStatus.groq ? "✓" : "✗"} ·
+          Mistral {keyStatus.mistral ? "✓" : "✗"} · HF {keyStatus.huggingface ? "✓" : "✗"}.
+          {!keyStatus.gemini && !keyStatus.openrouter && !keyStatus.groq && !keyStatus.mistral && !keyStatus.huggingface
             ? " زيد مفتاح مجاني من الروابط فوق باش يخدم الفريق."
             : ""}
         </p>

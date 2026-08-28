@@ -34,16 +34,43 @@ export interface RepoConfig {
 }
 
 export interface ProviderConfig {
-  primaryProvider: "gemini" | "openrouter" | "lovable";
+  primaryProvider: ProviderId;
   primaryModel: string;
-  fallbackProvider: "gemini" | "openrouter" | "lovable" | "none";
+  fallbackProvider: FallbackProviderId;
   fallbackModel: string;
   freeOnly: boolean;
 }
 
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
+/** Boolean flags for each configured secret (server env or user-supplied). */
+type SecretFlags = {
+  github: boolean;
+  gemini: boolean;
+  openrouter: boolean;
+  groq: boolean;
+  mistral: boolean;
+  huggingface: boolean;
+  lovable: boolean;
+};
+
 import { pickModel, rankModels, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
+import {
+  PROVIDER_IDS,
+  FALLBACK_PROVIDER_IDS,
+  type ProviderId,
+  type FallbackProviderId,
+} from "@/lib/architect.types";
+
+/** Human-readable Arabic label for a provider id. */
+const PROVIDER_LABEL: Record<ProviderId, string> = {
+  gemini: "Gemini",
+  openrouter: "OpenRouter",
+  lovable: "الذكاء المدمج",
+  groq: "Groq",
+  mistral: "Mistral",
+  huggingface: "Hugging Face",
+};
 
 /**
  * Shared workspace state for the whole app.
@@ -84,10 +111,10 @@ interface Ctx {
   changeSet: ChangeSet | null;
   review: ReviewBoardResult | null;
   gitResult: GitResult | null;
-  providerStatuses: Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>;
+  providerStatuses: Partial<Record<ProviderId, ProviderStatus>>;
   setProviderStatus: (s: ProviderStatus) => void;
-  keyStatus: { github: boolean; gemini: boolean; openrouter: boolean; lovable: boolean };
-  serverSecrets: { github: boolean; gemini: boolean; openrouter: boolean; lovable: boolean };
+  keyStatus: SecretFlags;
+  serverSecrets: SecretFlags;
   refreshSecrets: () => void;
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
@@ -138,12 +165,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [review, setReview] = useState<ReviewBoardResult | null>(null);
   const [gitResult, setGitResult] = useState<GitResult | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
-    Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>
+    Partial<Record<ProviderId, ProviderStatus>>
   >({});
-  const [serverSecrets, setServerSecrets] = useState({
+  const [serverSecrets, setServerSecrets] = useState<SecretFlags>({
     github: false,
     gemini: false,
     openrouter: false,
+    groq: false,
+    mistral: false,
+    huggingface: false,
     lovable: false,
   });
   const [secretTick, setSecretTick] = useState(0);
@@ -164,7 +194,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const providerStatusRef = useRef(providerStatuses);
   providerStatusRef.current = providerStatuses;
 
-  function forgetUnavailableModel(provider: "gemini" | "openrouter" | "lovable", model: string) {
+  function forgetUnavailableModel(provider: ProviderId, model: string) {
     setProviderStatuses((prev) => {
       const current = prev[provider];
       if (!current) return prev;
@@ -208,6 +238,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         github: Boolean(s.github),
         gemini: Boolean(s.gemini),
         openrouter: Boolean(s.openrouter),
+        groq: Boolean(s.groq),
+        mistral: Boolean(s.mistral),
+        huggingface: Boolean(s.huggingface),
         lovable: Boolean(s.lovable),
       }),
     );
@@ -218,10 +251,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [refreshSecrets]);
 
   const userSecrets = hydrated || secretTick ? getUserSecrets() : {};
-  const keyStatus = {
+  const keyStatus: SecretFlags = {
     github: Boolean(serverSecrets.github || userSecrets.GITHUB_TOKEN),
     gemini: Boolean(serverSecrets.gemini || userSecrets.GEMINI_API_KEY),
     openrouter: Boolean(serverSecrets.openrouter || userSecrets.OPENROUTER_API_KEY),
+    groq: Boolean(serverSecrets.groq || userSecrets.GROQ_API_KEY),
+    mistral: Boolean(serverSecrets.mistral || userSecrets.MISTRAL_API_KEY),
+    huggingface: Boolean(serverSecrets.huggingface || userSecrets.HF_API_KEY),
     lovable: serverSecrets.lovable,
   };
 
@@ -246,12 +282,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // مجاني 100%: نستعمل غير مفاتيح المستخدم المجانية.
       // الذكاء المدمج (lovable) كيستهلك أرصدة، فما كنستعملوهش تلقائيا —
       // غير إلا المستخدم ختارو بنفسو من الإعدادات.
-      const free: ("gemini" | "openrouter")[] = ["gemini", "openrouter"];
-      const order = (
+      const free = PROVIDER_IDS.filter((p) => p !== "lovable") as ProviderId[];
+      const order: ProviderId[] =
         cfg.primaryProvider === "lovable"
           ? ["lovable", ...free]
-          : [cfg.primaryProvider, ...free.filter((p) => p !== cfg.primaryProvider)]
-      ) as ("gemini" | "openrouter" | "lovable")[];
+          : [cfg.primaryProvider, ...free.filter((p) => p !== cfg.primaryProvider)];
 
 
       for (const provider of order) {
@@ -273,7 +308,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             role: "assistant",
             agent: "مدير المشروع",
             model: pick.model,
-            content: `${pick.reason} (المزوّد: ${provider === "gemini" ? "Gemini" : provider === "openrouter" ? "OpenRouter" : "الذكاء المدمج"})`,
+            content: `${pick.reason} (المزوّد: ${PROVIDER_LABEL[provider]})`,
           });
         }
         return pick.model;

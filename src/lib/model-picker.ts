@@ -1,3 +1,5 @@
+import type { ProviderId } from "./architect.types";
+
 /**
  * Automatic model selection.
  *
@@ -16,15 +18,15 @@ export interface ModelPick {
   reason: string;
 }
 
-/** OpenRouter marks free routes with a ":free" suffix. */
-function isFree(provider: "gemini" | "openrouter" | "lovable", model: string): boolean {
-  if (provider === "openrouter") return model.endsWith(":free");
-  // Gemini pricing depends on the account and quota. A model name alone does
-  // not prove that the request is free.
+/** OpenRouter and Hugging Face mark free routes with a ":free" suffix. */
+function isFree(provider: ProviderId, model: string): boolean {
+  if (provider === "openrouter" || provider === "huggingface") return model.endsWith(":free");
+  // Gemini, Groq, and Mistral free tiers depend on the account and quota. A
+  // model name alone does not prove that the request is free.
   return false;
 }
 
-function score(provider: "gemini" | "openrouter" | "lovable", model: string, kind: TaskKind): number {
+function score(provider: ProviderId, model: string, kind: TaskKind): number {
   const m = model.toLowerCase();
   let s = 0;
   // Gemini may still list legacy models that reject requests from new users.
@@ -44,6 +46,24 @@ function score(provider: "gemini" | "openrouter" | "lovable", model: string, kin
     else if (/gemini-3(?:-|\.)/.test(m)) s += 40;
   }
 
+  // Groq: prefer capable chat models; ignore whisper-tts/whisper/guard tools.
+  if (provider === "groq") {
+    if (/compound|llama-3\.3-70b|llama-3\.1-70b|llama-3-70b|llama-4|qwen|deepseek|moonshot|kimi/.test(m)) s += 40;
+    if (/whisper|guard|tts|distil|vision/.test(m)) return -1000;
+  }
+
+  // Mistral: prefer larger / newer chat models; skip embedding & moderation.
+  if (provider === "mistral") {
+    if (/medium|large|small|next|magistral|ministral|devstral|codestral/.test(m)) s += 40;
+    if (/embed|moderation|ocr|saba/.test(m)) return -1000;
+  }
+
+  // Hugging Face router: prefer capable chat models; free (:free) already +100.
+  if (provider === "huggingface") {
+    if (/qwen|llama|deepseek|mistral|gemma|phi|granite/.test(m)) s += 30;
+    if (/embed|rerank|vision|whisper|image|flux|audio/.test(m)) return -1000;
+  }
+
   const heavy = kind === "code" || kind === "plan";
   if (heavy) {
     if (/pro|coder|deepseek|qwen.*(coder|72b|235b)|llama.*70b|sonnet|3\.5-flash|3-flash/.test(m))
@@ -59,7 +79,7 @@ function score(provider: "gemini" | "openrouter" | "lovable", model: string, kin
 
 /** All usable REAL models, best first. */
 export function rankModels(
-  provider: "gemini" | "openrouter" | "lovable",
+  provider: ProviderId,
   models: string[],
   kind: TaskKind,
 ): ModelPick[] {
@@ -84,7 +104,7 @@ export function rankModels(
 
 /** Choose the best REAL model for a task, free models first. */
 export function pickModel(
-  provider: "gemini" | "openrouter" | "lovable",
+  provider: ProviderId,
   models: string[],
   kind: TaskKind,
 ): ModelPick | null {
@@ -102,4 +122,7 @@ export const KEY_SOURCES = {
   gemini: "https://aistudio.google.com/apikey",
   openrouter: "https://openrouter.ai/settings/keys",
   github: "https://github.com/settings/tokens",
+  groq: "https://console.groq.com/keys",
+  mistral: "https://console.mistral.ai/api-keys",
+  huggingface: "https://huggingface.co/settings/tokens",
 } as const;
