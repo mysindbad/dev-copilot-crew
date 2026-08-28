@@ -56,14 +56,7 @@ import { pickModel, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-pic
 const CONFIG_KEY = "aidevteam.config.v1";
 
 export type PipelinePhase =
-  | "idle"
-  | "inspect"
-  | "plan"
-  | "code"
-  | "review"
-  | "git"
-  | "done"
-  | "failed";
+  "idle" | "inspect" | "plan" | "code" | "review" | "git" | "done" | "failed";
 
 export interface ChatEntry {
   id: string;
@@ -172,7 +165,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setProviderStatuses((prev) => {
       const current = prev[provider];
       if (!current) return prev;
-      return { ...prev, [provider]: { ...current, models: current.models.filter((m) => m !== model) } };
+      return {
+        ...prev,
+        [provider]: { ...current, models: current.models.filter((m) => m !== model) },
+      };
     });
   }
 
@@ -196,7 +192,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(CONFIG_KEY, JSON.stringify({ repo: repoConfig, provider: providerConfig }));
+    localStorage.setItem(
+      CONFIG_KEY,
+      JSON.stringify({ repo: repoConfig, provider: providerConfig }),
+    );
   }, [hydrated, repoConfig, providerConfig]);
 
   const refreshSecrets = useCallback(() => {
@@ -270,12 +269,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [providerFn, setProviderStatus],
   );
 
-
   function step(agent: string, action: string, model?: string) {
     const entryId = log({ agent, action, state: "running", ...(model ? { model } : {}) });
     return {
       ok: (detail?: string, m?: string) =>
-        finish(entryId, { state: "done", ...(detail ? { detail } : {}), ...(m ? { model: m } : {}) }),
+        finish(entryId, {
+          state: "done",
+          ...(detail ? { detail } : {}),
+          ...(m ? { model: m } : {}),
+        }),
       fail: (detail: string) => finish(entryId, { state: "failed", detail }),
     };
   }
@@ -571,7 +573,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             messages: history.map((m) => ({ role: m.role, content: m.content })).slice(-20),
             language: "ar" as const,
             context: {
-              repository: repoResult?.ok ? (repoResult.repository?.fullName ?? "") : repoConfig.repoUrl,
+              repository: repoResult?.ok
+                ? (repoResult.repository?.fullName ?? "")
+                : repoConfig.repoUrl,
               branch: repoConfig.branch,
               commitSha: audit?.commitSha ?? "",
               stack: audit
@@ -599,7 +603,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           },
         });
         if (!res.ok || !res.turn) {
-          if (res.attempts.some((attempt) => attempt.model === model && /توقف عند Google|no longer available/i.test(attempt.detail))) {
+          if (
+            res.attempts.some(
+              (attempt) =>
+                attempt.model === model &&
+                /توقف عند Google|no longer available/i.test(attempt.detail),
+            )
+          ) {
             forgetUnavailableModel(cfg.primaryProvider, model);
             setProviderConfig((current) => ({ ...current, primaryModel: "" }));
           }

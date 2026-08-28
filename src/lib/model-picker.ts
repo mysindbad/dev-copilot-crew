@@ -70,7 +70,13 @@ export function pickModel(
   const best = ranked[0];
   if (!best) return null;
   const kindAr =
-    kind === "code" ? "كتابة الكود" : kind === "plan" ? "التخطيط" : kind === "review" ? "المراجعة" : "الحوار";
+    kind === "code"
+      ? "كتابة الكود"
+      : kind === "plan"
+        ? "التخطيط"
+        : kind === "review"
+          ? "المراجعة"
+          : "الحوار";
   return {
     model: best.model,
     free: best.free,
