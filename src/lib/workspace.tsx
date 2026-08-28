@@ -42,7 +42,7 @@ export interface ProviderConfig {
 
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
-import { pickModel, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
+import { pickModel, rankModels, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
 
 /**
  * Shared workspace state for the whole app.
@@ -597,6 +597,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             },
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
+            backupModels: rankModels(
+              cfg.primaryProvider,
+              providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+              "chat",
+            )
+              .filter((p) => p.model !== model)
+              .slice(0, 2)
+              .map((p) => p.model),
             fallbackProvider: cfg.fallbackProvider,
             fallbackModel: cfg.fallbackModel,
             secrets: getUserSecrets(),
