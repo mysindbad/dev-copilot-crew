@@ -43,6 +43,17 @@ export interface ProviderConfig {
 
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
+/** Boolean flags for each configured secret (server env or user-supplied). */
+type SecretFlags = {
+  github: boolean;
+  gemini: boolean;
+  openrouter: boolean;
+  groq: boolean;
+  mistral: boolean;
+  huggingface: boolean;
+  lovable: boolean;
+};
+
 import { pickModel, rankModels, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
 import {
   PROVIDER_IDS,
