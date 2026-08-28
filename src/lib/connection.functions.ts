@@ -298,47 +298,167 @@ export const testProvider = createServerFn({ method: "POST" })
       };
     }
 
-    const key = getSecret("OPENROUTER_API_KEY");
-    if (!key)
-      return {
-        provider: "openrouter",
-        configured: false,
-        ok: false,
-        detail: "OPENROUTER_API_KEY secret is not configured.",
-        models: [],
-      };
-    const keyRes = await fetch("https://openrouter.ai/api/v1/key", {
-      headers: { Authorization: `Bearer ${key}` },
-    });
-    if (!keyRes.ok) {
+    // OpenRouter — key check + free-model listing.
+    if (data.provider === "openrouter") {
+      const key = getSecret("OPENROUTER_API_KEY");
+      if (!key)
+        return {
+          provider: "openrouter",
+          configured: false,
+          ok: false,
+          detail: "OPENROUTER_API_KEY secret is not configured.",
+          models: [],
+        };
+      const keyRes = await fetch("https://openrouter.ai/api/v1/key", {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (!keyRes.ok) {
+        return {
+          provider: "openrouter",
+          configured: true,
+          ok: false,
+          detail: safeMessage(`OpenRouter returned ${keyRes.status}`),
+          models: [],
+        };
+      }
+      const modelsRes = await fetch("https://openrouter.ai/api/v1/models");
+      let freeModels: string[] = [];
+      if (modelsRes.ok) {
+        const body = (await modelsRes.json()) as {
+          data?: { id: string; pricing?: { prompt?: string; completion?: string } }[];
+        };
+        freeModels = (body.data ?? [])
+          .filter(
+            (m) =>
+              Number(m.pricing?.prompt ?? "1") === 0 && Number(m.pricing?.completion ?? "1") === 0,
+          )
+          .map((m) => m.id)
+          .sort();
+      }
       return {
         provider: "openrouter",
         configured: true,
-        ok: false,
-        detail: safeMessage(`OpenRouter returned ${keyRes.status}`),
-        models: [],
+        ok: true,
+        detail: `Key valid — ${freeModels.length} free models available`,
+        models: freeModels,
       };
     }
-    const modelsRes = await fetch("https://openrouter.ai/api/v1/models");
-    let freeModels: string[] = [];
-    if (modelsRes.ok) {
-      const body = (await modelsRes.json()) as {
-        data?: { id: string; pricing?: { prompt?: string; completion?: string } }[];
+
+    // Groq — OpenAI-compatible. Free tier covers every listed model.
+    if (data.provider === "groq") {
+      const key = getSecret("GROQ_API_KEY");
+      if (!key)
+        return {
+          provider: "groq",
+          configured: false,
+          ok: false,
+          detail: "GROQ_API_KEY غير متوفر.",
+          models: [],
+        };
+      const res = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (!res.ok)
+        return {
+          provider: "groq",
+          configured: true,
+          ok: false,
+          detail: safeMessage(`Groq ${res.status}`),
+          models: [],
+        };
+      const body = (await res.json()) as {
+        data?: { id: string; active?: boolean }[];
       };
-      freeModels = (body.data ?? [])
-        .filter(
-          (m) =>
-            Number(m.pricing?.prompt ?? "1") === 0 && Number(m.pricing?.completion ?? "1") === 0,
-        )
+      const models = (body.data ?? [])
+        .filter((m) => m.active !== false)
         .map((m) => m.id)
         .sort();
+      return {
+        provider: "groq",
+        configured: true,
+        ok: true,
+        detail: `${models.length} models available (free tier)`,
+        models,
+      };
     }
+
+    // Mistral — OpenAI-compatible. Free mode ($10/mo) by default, no card.
+    if (data.provider === "mistral") {
+      const key = getSecret("MISTRAL_API_KEY");
+      if (!key)
+        return {
+          provider: "mistral",
+          configured: false,
+          ok: false,
+          detail: "MISTRAL_API_KEY غير متوفر.",
+          models: [],
+        };
+      const res = await fetch("https://api.mistral.ai/v1/models", {
+        headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+      });
+      if (!res.ok)
+        return {
+          provider: "mistral",
+          configured: true,
+          ok: false,
+          detail: safeMessage(`Mistral ${res.status}`),
+          models: [],
+        };
+      const body = (await res.json()) as {
+        data?: { id: string; capabilities?: string[] }[];
+      };
+      const models = (body.data ?? [])
+        .filter((m) => !(m.capabilities ?? []).includes("embedding"))
+        .map((m) => m.id)
+        .sort();
+      return {
+        provider: "mistral",
+        configured: true,
+        ok: true,
+        detail: `${models.length} models available (free mode)`,
+        models,
+      };
+    }
+
+    // Hugging Face router — OpenAI-compatible. ':free' models are free.
+    if (data.provider === "huggingface") {
+      const key = getSecret("HF_API_KEY");
+      if (!key)
+        return {
+          provider: "huggingface",
+          configured: false,
+          ok: false,
+          detail: "HF_API_KEY غير متوفر.",
+          models: [],
+        };
+      const res = await fetch("https://router.huggingface.co/v1/models", {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (!res.ok)
+        return {
+          provider: "huggingface",
+          configured: true,
+          ok: false,
+          detail: safeMessage(`Hugging Face ${res.status}`),
+          models: [],
+        };
+      const body = (await res.json()) as { data?: { id: string }[] };
+      const models = (body.data ?? []).map((m) => m.id).sort();
+      return {
+        provider: "huggingface",
+        configured: true,
+        ok: true,
+        detail: `${models.length} models available`,
+        models,
+      };
+    }
+
     return {
-      provider: "openrouter",
-      configured: true,
-      ok: true,
-      detail: `Key valid — ${freeModels.length} free models available`,
-      models: freeModels,
+      provider: data.provider,
+      configured: false,
+      ok: false,
+      detail: "Unknown provider.",
+      models: [],
     };
     });
   });
