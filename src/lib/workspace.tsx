@@ -125,7 +125,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const [repoConfig, setRepoConfig] = useState<RepoConfig>({ repoUrl: "", branch: "main" });
   const [providerConfig, setProviderConfig] = useState<ProviderConfig>({
-    primaryProvider: "lovable",
+    primaryProvider: "gemini",
     primaryModel: "",
     fallbackProvider: "none",
     fallbackModel: "",
