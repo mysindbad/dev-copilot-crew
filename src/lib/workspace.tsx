@@ -243,11 +243,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const ensureModel = useCallback(
     async (kind: TaskKind = "plan", announce = false): Promise<string> => {
       const cfg = providerRef.current;
-      const all: ("gemini" | "openrouter" | "lovable")[] = ["lovable", "gemini", "openrouter"];
-      const order = [
-        cfg.primaryProvider,
-        ...all.filter((p) => p !== cfg.primaryProvider),
-      ] as ("gemini" | "openrouter" | "lovable")[];
+      // مجاني 100%: نستعمل غير مفاتيح المستخدم المجانية.
+      // الذكاء المدمج (lovable) كيستهلك أرصدة، فما كنستعملوهش تلقائيا —
+      // غير إلا المستخدم ختارو بنفسو من الإعدادات.
+      const free: ("gemini" | "openrouter")[] = ["gemini", "openrouter"];
+      const order = (
+        cfg.primaryProvider === "lovable"
+          ? ["lovable", ...free]
+          : [cfg.primaryProvider, ...free.filter((p) => p !== cfg.primaryProvider)]
+      ) as ("gemini" | "openrouter" | "lovable")[];
+
 
       for (const provider of order) {
         let status = providerStatusRef.current[provider];
