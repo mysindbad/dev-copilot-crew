@@ -55,7 +55,14 @@ export async function callLlm(
 ): Promise<LlmCallResult> {
   const maxAttempts = options.maxAttempts ?? 2;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const res = await callLlmOnce(provider, model, system, user, options.timeoutMs ?? 35_000);
+    const res = await callLlmOnce(
+      provider,
+      model,
+      system,
+      user,
+      options.timeoutMs ?? 35_000,
+      options.temperature ?? 0.2,
+    );
     const transient =
       res.status === 503 || res.status === 429 || res.status === 524 || (res.status ?? 0) >= 500;
     if (res.ok || !transient || attempt === maxAttempts - 1) return res;
@@ -70,9 +77,11 @@ async function callLlmOnce(
   system: string,
   user: string,
   timeoutMs: number,
+  temperature: number,
 ): Promise<LlmCallResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     if (provider === "lovable") {
       const key = process.env["LOVABLE_API_KEY"];
