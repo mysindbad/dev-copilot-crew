@@ -24,7 +24,9 @@ import { recallAudit } from "./project-memory.server";
  * GitHub: there is no commit, no branch creation and no push in this phase.
  */
 
-const MAX_TARGET_FILES = 6;
+const MAX_TARGET_FILES = 10;
+/** Extra files the model may pull in on demand, still inside the approved plan. */
+const MAX_LAZY_FILES = 6;
 const MAX_READ_BYTES = 120_000;
 const MAX_OUTPUT_BYTES = 120_000;
 
@@ -187,16 +189,16 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
 
   const blocked: { path: string; reason: string }[] = [];
   const targets: string[] = [];
+  /** Every plan path that passes the guardrails, even beyond the eager budget. */
+  const allowed: string[] = [];
   for (const path of wanted) {
     const problem = pathIsAcceptable(path);
     if (problem) {
       blocked.push({ path, reason: problem });
       continue;
     }
-    if (targets.length >= MAX_TARGET_FILES) {
-      blocked.push({ path, reason: `file budget reached (${MAX_TARGET_FILES} files per run)` });
-      continue;
-    }
+    allowed.push(path);
+    if (targets.length >= MAX_TARGET_FILES) continue;
     targets.push(path);
   }
   if (targets.length === 0) {
@@ -222,6 +224,19 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
   }
   for (const b of blocked) current.delete(b.path);
   const readable = targets.filter((t) => current.has(t));
+  let lazyReads = 0;
+  /** Reads an approved-but-not-yet-loaded plan file the model asked to change. */
+  const admitLazily = async (path: string): Promise<boolean> => {
+    if (!allowed.includes(path)) return false;
+    if (lazyReads >= MAX_LAZY_FILES) return false;
+    lazyReads += 1;
+    const read = await readFileAtCommit(parsed.owner, parsed.repo, path, plan.commitSha);
+    if (read.ok && typeof read.content === "string") current.set(path, read.content);
+    else if (read.error === "not found at this commit") current.set(path, null);
+    else return false;
+    readable.push(path);
+    return true;
+  };
   if (readable.length === 0) {
     return {
       ok: false,
@@ -307,9 +322,14 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
       const files: StagedFile[] = [];
 
       for (const item of out.files) {
-        const path = item.path.trim().replace(/^\.\//, "");
-        if (!readable.includes(path)) {
-          runBlocked.push({ path, reason: "outside the approved plan scope" });
+        const path = item.path.trim().replace(/^\.\//, "").replace(/^\/+/, "");
+        if (!readable.includes(path) && !(await admitLazily(path))) {
+          runBlocked.push({
+            path,
+            reason: allowed.includes(path)
+              ? "could not be read at this commit"
+              : "outside the approved plan scope",
+          });
           continue;
         }
         const action = normalizeAction(item.action);
@@ -401,7 +421,10 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
           provider: route.provider,
           model: route.model,
           ok: false,
-          detail: `No change survived the guardrails (${runBlocked.length} rejected).`,
+          detail: `No change survived the guardrails (${runBlocked.length} rejected): ${runBlocked
+            .slice(0, 6)
+            .map((b) => `${b.path} (${b.reason})`)
+            .join("; ")}`,
           ms,
         });
         continue;
