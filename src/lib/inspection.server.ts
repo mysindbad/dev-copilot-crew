@@ -858,7 +858,7 @@ export async function inspectRepositoryReal(input: {
   if (stack.packageManager.value.includes("assumed")) risks.push("No lockfile is committed — dependency installs are not reproducible.");
   if (!coverageComplete)
     risks.push(
-      `Inspection is partial: ${contents.size} of ${inspectableFiles} inspectable text files were read. Unread files were not audited.`,
+      `Inspection is partial: ${contents.size} of ${effectiveInspectable} inspectable text files were read. Unread files were not audited.`,
     );
   const clientEnv = envReferences.filter((e) => e.referencedBy.some((f) => /^(src\/)?(components|pages|app|client)\//.test(f)) && !/^(VITE_|NEXT_PUBLIC_|PUBLIC_)/.test(e.name));
   if (clientEnv.length)
@@ -874,7 +874,7 @@ export async function inspectRepositoryReal(input: {
   if (tree.truncated) unknowns.push("Full file tree (GitHub truncated the response)");
   if (!coverageComplete)
     unknowns.push(
-      `Contents of ${Math.max(0, inspectableFiles - contents.size)} inspectable text files not read (inspection limit or GitHub failure)`,
+      `Contents of ${Math.max(0, effectiveInspectable - contents.size)} inspectable text files not read (inspection limit or GitHub failure)`,
     );
 
   const base = {
@@ -890,7 +890,7 @@ export async function inspectRepositoryReal(input: {
     largeRepository,
     counts: {
       totalFiles: files.length,
-      inspectableFiles,
+      inspectableFiles: effectiveInspectable,
       inspectedFiles: contents.size,
       skippedFiles: files.length - contents.size,
       byCategory,
