@@ -228,9 +228,24 @@ export function SettingsDrawer() {
                 1) سير لـ <a href={KEY_SOURCES.github} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">github.com/settings/tokens</a>
                 {" "}2) «Generate new token (classic)» 3) فعّل صلاحية repo 4) كوبييه وحطّو لتحت.
               </li>
+              <li>
+                <span className="font-medium text-foreground">Groq (مجاني، الأسرع 🔥):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.groq} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">console.groq.com/keys</a>
+                {" "}2) سجّل بحساب Google/GitHub 3) «Create API Key» 4) كوبييه وحطّو لتحت.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Mistral AI (10$ مجانا 🇫🇷):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.mistral} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">console.mistral.ai/api-keys</a>
+                {" "}2) سجّل 3) «Create new key» 4) كوبييه وحطّو لتحت.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Hugging Face (آلاف النماذج 🤗):</span>{" "}
+                1) سير لـ <a href={KEY_SOURCES.huggingface} target="_blank" rel="noreferrer" dir="ltr" className="text-primary underline">huggingface.co/settings/tokens</a>
+                {" "}2) سجّل 3) «New token» بصلاحية Read 4) كوبييه وحطّو لتحت.
+              </li>
             </ol>
             <p className="text-[0.68rem] text-muted-foreground">
-              هاد الروابط رسمية من Google / OpenRouter / GitHub — مفاتيحك كتبقى فالمتصفح ديالك غير نتا.
+              هاد الروابط رسمية من Google / OpenRouter / Groq / Mistral / Hugging Face / GitHub — مفاتيحك كتبقى فالمتصفح ديالك غير نتا.
             </p>
           </div>
 
