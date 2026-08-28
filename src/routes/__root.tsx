@@ -11,9 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { I18nProvider } from "../lib/i18n";
-import { ActivityProvider } from "../lib/activity";
-import { WorkspaceProvider } from "../lib/workspace";
+import { I18nProvider } from "@/lib/i18n";
+import { ActivityProvider } from "@/lib/activity";
+import { WorkspaceProvider } from "@/lib/workspace";
 
 function NotFoundComponent() {
   return (
@@ -123,26 +123,34 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <Providers>{children}</Providers>
         <Scripts />
       </body>
     </html>
   );
 }
 
-function RootComponent() {
+/**
+ * Providers live in the shell so error and not-found components — which replace
+ * the root component — still render inside the workspace context.
+ */
+function Providers({ children }: { children: ReactNode }) {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <ActivityProvider>
-          <WorkspaceProvider>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-          </WorkspaceProvider>
+          <WorkspaceProvider>{children}</WorkspaceProvider>
         </ActivityProvider>
       </I18nProvider>
     </QueryClientProvider>
   );
+}
+
+function RootComponent() {
+  {
+    /* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */
+  }
+  return <Outlet />;
 }
