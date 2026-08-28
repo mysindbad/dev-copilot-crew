@@ -30,6 +30,7 @@ export function redact(message: string): string {
 }
 
 export function hasProviderKey(provider: ProviderId): boolean {
+  if (provider === "lovable") return Boolean(process.env["LOVABLE_API_KEY"]);
   return provider === "gemini"
     ? Boolean(getSecret("GEMINI_API_KEY"))
     : Boolean(getSecret("OPENROUTER_API_KEY"));
