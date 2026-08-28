@@ -123,6 +123,9 @@ export function SettingsDrawer() {
     GITHUB_TOKEN: serverSecrets.github,
     GEMINI_API_KEY: serverSecrets.gemini,
     OPENROUTER_API_KEY: serverSecrets.openrouter,
+    GROQ_API_KEY: serverSecrets.groq,
+    MISTRAL_API_KEY: serverSecrets.mistral,
+    HF_API_KEY: serverSecrets.huggingface,
   };
 
   return (
