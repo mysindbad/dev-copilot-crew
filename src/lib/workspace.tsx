@@ -168,6 +168,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const providerStatusRef = useRef(providerStatuses);
   providerStatusRef.current = providerStatuses;
 
+  function forgetUnavailableModel(provider: "gemini" | "openrouter", model: string) {
+    setProviderStatuses((prev) => {
+      const current = prev[provider];
+      if (!current) return prev;
+      return { ...prev, [provider]: { ...current, models: current.models.filter((m) => m !== model) } };
+    });
+  }
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(CONFIG_KEY);
@@ -591,6 +599,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           },
         });
         if (!res.ok || !res.turn) {
+          if (res.attempts.some((attempt) => attempt.model === model && /توقف عند Google|no longer available/i.test(attempt.detail))) {
+            forgetUnavailableModel(cfg.primaryProvider, model);
+            setProviderConfig((current) => ({ ...current, primaryModel: "" }));
+          }
           a.fail(arabize(res.error ?? ""));
           say({
             role: "assistant",

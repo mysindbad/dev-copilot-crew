@@ -44,6 +44,10 @@ const EXACT: Record<string, string> = {
 };
 
 const RULES: [RegExp, string][] = [
+  [
+    /^Gemini 404:[\s\S]*model models\/(\S+) is no longer available[\s\S]*$/i,
+    "النموذج $1 توقف عند Google. غادي نختار تلقائيًا نموذجًا حديثًا فالمحاولة الجاية.",
+  ],
   [/^Authenticated as (.+)$/i, "متصل بحساب $1"],
   [/^Token is read-only.*$/i, "التوكن للقراءة فقط — لا يمكن الإرسال إلى GitHub"],
   [/^No token stored.*$/i, "لا يوجد توكن — سنقرأ المستودع كزائر عمومي فقط"],
