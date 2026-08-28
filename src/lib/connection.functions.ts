@@ -221,7 +221,7 @@ export const testRepositoryConnection = createServerFn({ method: "POST" })
   });
 
 export interface ProviderStatus {
-  provider: "gemini" | "openrouter";
+  provider: "gemini" | "openrouter" | "lovable";
   configured: boolean;
   ok: boolean;
   detail: string;
@@ -229,7 +229,7 @@ export interface ProviderStatus {
 }
 
 const ProviderInput = z.object({
-  provider: z.enum(["gemini", "openrouter"]),
+  provider: z.enum(["gemini", "openrouter", "lovable"]),
   secrets: SecretsPayload,
 });
 

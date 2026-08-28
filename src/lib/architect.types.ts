@@ -6,7 +6,7 @@
  * It never writes files, never commits, and never receives credentials.
  */
 
-export type ProviderId = "gemini" | "openrouter";
+export type ProviderId = "gemini" | "openrouter" | "lovable";
 
 export interface PlanFileChange {
   path: string;

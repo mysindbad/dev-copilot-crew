@@ -34,9 +34,9 @@ export interface RepoConfig {
 }
 
 export interface ProviderConfig {
-  primaryProvider: "gemini" | "openrouter";
+  primaryProvider: "gemini" | "openrouter" | "lovable";
   primaryModel: string;
-  fallbackProvider: "gemini" | "openrouter" | "none";
+  fallbackProvider: "gemini" | "openrouter" | "lovable" | "none";
   fallbackModel: string;
   freeOnly: boolean;
 }
@@ -84,7 +84,7 @@ interface Ctx {
   changeSet: ChangeSet | null;
   review: ReviewBoardResult | null;
   gitResult: GitResult | null;
-  providerStatuses: Partial<Record<"gemini" | "openrouter", ProviderStatus>>;
+  providerStatuses: Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>;
   setProviderStatus: (s: ProviderStatus) => void;
   keyStatus: { github: boolean; gemini: boolean; openrouter: boolean };
   serverSecrets: { github: boolean; gemini: boolean; openrouter: boolean };
@@ -138,7 +138,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [review, setReview] = useState<ReviewBoardResult | null>(null);
   const [gitResult, setGitResult] = useState<GitResult | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
-    Partial<Record<"gemini" | "openrouter", ProviderStatus>>
+    Partial<Record<"gemini" | "openrouter" | "lovable", ProviderStatus>>
   >({});
   const [serverSecrets, setServerSecrets] = useState({
     github: false,
@@ -163,7 +163,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const providerStatusRef = useRef(providerStatuses);
   providerStatusRef.current = providerStatuses;
 
-  function forgetUnavailableModel(provider: "gemini" | "openrouter", model: string) {
+  function forgetUnavailableModel(provider: "gemini" | "openrouter" | "lovable", model: string) {
     setProviderStatuses((prev) => {
       const current = prev[provider];
       if (!current) return prev;
@@ -240,7 +240,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const ensureModel = useCallback(
     async (kind: TaskKind = "plan", announce = false): Promise<string> => {
       const cfg = providerRef.current;
-      const order: ("gemini" | "openrouter")[] =
+      const order: ("gemini" | "openrouter" | "lovable")[] =
         cfg.primaryProvider === "gemini" ? ["gemini", "openrouter"] : ["openrouter", "gemini"];
 
       for (const provider of order) {

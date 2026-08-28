@@ -17,14 +17,14 @@ export interface ModelPick {
 }
 
 /** OpenRouter marks free routes with a ":free" suffix. */
-function isFree(provider: "gemini" | "openrouter", model: string): boolean {
+function isFree(provider: "gemini" | "openrouter" | "lovable", model: string): boolean {
   if (provider === "openrouter") return model.endsWith(":free");
   // Gemini pricing depends on the account and quota. A model name alone does
   // not prove that the request is free.
   return false;
 }
 
-function score(provider: "gemini" | "openrouter", model: string, kind: TaskKind): number {
+function score(provider: "gemini" | "openrouter" | "lovable", model: string, kind: TaskKind): number {
   const m = model.toLowerCase();
   let s = 0;
   // Gemini may still list legacy models that reject requests from new users.
@@ -59,7 +59,7 @@ function score(provider: "gemini" | "openrouter", model: string, kind: TaskKind)
 
 /** All usable REAL models, best first. */
 export function rankModels(
-  provider: "gemini" | "openrouter",
+  provider: "gemini" | "openrouter" | "lovable",
   models: string[],
   kind: TaskKind,
 ): ModelPick[] {
@@ -84,7 +84,7 @@ export function rankModels(
 
 /** Choose the best REAL model for a task, free models first. */
 export function pickModel(
-  provider: "gemini" | "openrouter",
+  provider: "gemini" | "openrouter" | "lovable",
   models: string[],
   kind: TaskKind,
 ): ModelPick | null {

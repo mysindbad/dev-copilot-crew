@@ -24,9 +24,9 @@ const Input = z.object({
     )
     .min(1),
   reviewers: z.array(z.enum(["code", "security", "qa"])).default([]),
-  primaryProvider: z.enum(["gemini", "openrouter"]),
+  primaryProvider: z.enum(["gemini", "openrouter", "lovable"]),
   primaryModel: z.string().min(1),
-  fallbackProvider: z.enum(["gemini", "openrouter", "none"]).default("none"),
+  fallbackProvider: z.enum(["gemini", "openrouter", "lovable", "none"]).default("none"),
   fallbackModel: z.string().default(""),
   secrets: SecretsPayload,
 });

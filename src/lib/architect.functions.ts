@@ -6,10 +6,10 @@ import type { ArchitectResult } from "./architect.types";
 const ArchitectInput = z.object({
   projectId: z.string().min(1),
   request: z.string().min(8),
-  primaryProvider: z.enum(["gemini", "openrouter"]),
+  primaryProvider: z.enum(["gemini", "openrouter", "lovable"]),
   primaryModel: z.string(),
   backupModels: z.array(z.string().min(1)).max(3).default([]),
-  fallbackProvider: z.enum(["gemini", "openrouter", "none"]),
+  fallbackProvider: z.enum(["gemini", "openrouter", "lovable", "none"]),
   fallbackModel: z.string(),
   secrets: SecretsPayload,
 });
