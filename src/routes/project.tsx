@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { GitCommitHorizontal } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { GitCommitHorizontal, MonitorPlay } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { InspectionPanel } from "@/components/InspectionPanel";
 import { RepositoryAuditView } from "@/components/RepositoryAuditView";
@@ -33,7 +33,16 @@ function ProjectPage() {
   return (
     <AppShell>
       <section className="panel p-4 sm:p-6">
-        <h2 className="text-base font-semibold">المشروع الحالي</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">المشروع الحالي</h2>
+          <Link
+            to="/workspace"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <MonitorPlay className="size-4" />
+            Open Workspace
+          </Link>
+        </div>
         {repo ? (
           <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="المستودع" value={repo.fullName} />

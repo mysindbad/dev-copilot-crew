@@ -10,6 +10,7 @@ const NAV = [
   { to: "/", label: "المحادثة" },
   { to: "/project", label: "المشروع" },
   { to: "/work", label: "العمل" },
+  { to: "/workspace", label: "Workspace" },
 ] as const;
 
 /** Shared header, page navigation and settings drawer. */
