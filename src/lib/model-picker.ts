@@ -46,6 +46,8 @@ function score(provider: ProviderId, model: string, kind: TaskKind): number {
   if (provider === "gemini" && /^gemini-2\.5-flash(?:-|$)/.test(m)) return -1000;
   if (isFree(provider, model)) s += 100;
   if (/deprecated|vision-only|embedding|imagen|tts|audio|image/.test(m)) return -1000;
+  // OpenRouter lists non-chat models (music, image, clip) — exclude them.
+  if (provider === "openrouter" && /lyria|clip|note-preview|music|realtime/i.test(m)) return -1000;
   if (/preview|exp\b|experimental/.test(m)) s -= 5;
 
   // Prefer the newest callable Gemini generation instead of relying on the

@@ -44,7 +44,7 @@ const REPO_URL = "mysindbad/dev-copilot-crew";
 const BASE_BRANCH = "main";
 const TASK =
   "Add a brief developer-only comment at the top of the main server entry point file explaining its purpose. Do not change any runtime behavior — only add a comment.";
-const PROVIDER: ProviderId = "openai";
+const PROVIDER: ProviderId = "openrouter";
 
 // ── Results tracking ──────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ function section(n: number, title: string) {
 
 async function main() {
   console.log("╔══════════════════════════════════════════════════════════════════════╗");
-  console.log("║  REAL END-TO-END VALIDATION — OpenAI + GitHub + Agent Pipeline       ║");
+  console.log("║  REAL END-TO-END VALIDATION — OpenRouter + GitHub + Agent Pipeline   ║");
   console.log("╚══════════════════════════════════════════════════════════════════════╝");
 
   // Initialize the vault and secrets bridge
@@ -89,25 +89,25 @@ async function main() {
   // ── Step 1: Credential configuration ───────────────────────────────────
   section(1, "Credential configuration");
 
-  const openaiKey = getSecret("OPENAI_API_KEY");
+  const openrouterKey = getSecret("OPENROUTER_API_KEY");
   const githubToken = getSecret("GITHUB_TOKEN");
   const encKey = process.env["CREDENTIAL_ENCRYPTION_KEY"];
 
-  const openaiSource = secretSource("OPENAI_API_KEY");
+  const openrouterSource = secretSource("OPENROUTER_API_KEY");
   const githubSource = secretSource("GITHUB_TOKEN");
 
-  const openaiMeta = await getVaultSecretMetadata("OPENAI_API_KEY");
+  const openrouterMeta = await getVaultSecretMetadata("OPENROUTER_API_KEY");
   const githubMeta = await getVaultSecretMetadata("GITHUB_TOKEN");
 
-  console.log(`  OPENAI_API_KEY: configured=${!!openaiKey}, source=${openaiSource}, vault=${hasVaultSecret("OPENAI_API_KEY")}, masked=${openaiMeta.maskedKey || "N/A"}`);
+  console.log(`  OPENROUTER_API_KEY: configured=${!!openrouterKey}, source=${openrouterSource}, vault=${hasVaultSecret("OPENROUTER_API_KEY")}, masked=${openrouterMeta.maskedKey || "N/A"}`);
   console.log(`  GITHUB_TOKEN: configured=${!!githubToken}, source=${githubSource}, vault=${hasVaultSecret("GITHUB_TOKEN")}, masked=${githubMeta.maskedKey || "N/A"}`);
   console.log(`  CREDENTIAL_ENCRYPTION_KEY: configured=${!!encKey}`);
 
-  const credsOk = !!openaiKey && !!githubToken && !!encKey;
+  const credsOk = !!openrouterKey && !!githubToken && !!encKey;
   record(
     "Secure credential retrieval",
     credsOk,
-    `OPENAI_API_KEY=${openaiSource}, GITHUB_TOKEN=${githubSource}, CREDENTIAL_ENCRYPTION_KEY=${encKey ? "server" : "missing"}`,
+    `OPENROUTER_API_KEY=${openrouterSource}, GITHUB_TOKEN=${githubSource}, CREDENTIAL_ENCRYPTION_KEY=${encKey ? "server" : "missing"}`,
     "Verified all 3 required secrets are available server-side (values never printed)",
   );
 
@@ -117,39 +117,48 @@ async function main() {
     return;
   }
 
-  // ── Step 2: OpenAI connection test ─────────────────────────────────────
-  section(2, "OpenAI connection test");
+  // ── Step 2: OpenRouter connection test ─────────────────────────────────
+  section(2, "OpenRouter connection test");
 
-  // List models first
-  const modelsRes = await fetch("https://api.openai.com/v1/models", {
-    headers: { Authorization: `Bearer ${openaiKey}` },
-  });
+  // List models — OpenRouter's model listing is public (no auth needed)
+  const modelsRes = await fetch("https://openrouter.ai/api/v1/models");
 
   if (!modelsRes.ok) {
-    record("OpenAI API call", false, `Model list failed: HTTP ${modelsRes.status}`, "GET /v1/models");
+    record("OpenRouter API call", false, `Model list failed: HTTP ${modelsRes.status}`, "GET /v1/models");
     printReport();
     return;
   }
 
-  const modelsBody = (await modelsRes.json()) as { data?: { id: string }[] };
-  const allModels = (modelsBody.data ?? []).map((m) => m.id).sort();
-  const chatModels = allModels.filter(
-    (id) => !/embed|tts|whisper|dall-e|moderation|audio|realtime/i.test(id),
-  );
-  console.log(`  Available chat models: ${chatModels.length}`);
-  console.log(`  Sample: ${chatModels.slice(0, 10).join(", ")}`);
+  const modelsBody = (await modelsRes.json()) as {
+    data?: { id: string; pricing?: { prompt?: string; completion?: string } }[];
+  };
+  // Free models have zero pricing; also include all models for fallback
+  const freeModels = (modelsBody.data ?? [])
+    .filter((m) => Number(m.pricing?.prompt ?? "1") === 0 && Number(m.pricing?.completion ?? "1") === 0)
+    .map((m) => m.id)
+    .filter((id) => !/lyria|clip|note|image|music|whisper|tts|embed|rerank|vision|moderation|audio/i.test(id))
+    .sort();
+  const allModels = (modelsBody.data ?? [])
+    .map((m) => m.id)
+    .filter((id) => !/lyria|clip|note|image|music|whisper|tts|embed|rerank|vision|moderation|audio/i.test(id))
+    .sort();
+  // Use free models first, then all models as backup
+  const chatModels = freeModels.length > 0 ? freeModels : allModels;
+  console.log(`  Available free models: ${freeModels.length}`);
+  console.log(`  Total models: ${allModels.length}`);
+  console.log(`  Sample free: ${freeModels.slice(0, 8).join(", ")}`);
 
   // Pick the best model for a code task
   const modelPick = pickModel(PROVIDER, chatModels, "code");
   if (!modelPick) {
-    record("OpenAI API call", false, "No suitable model found", "pickModel");
+    record("OpenRouter API call", false, "No suitable model found", "pickModel");
     printReport();
     return;
   }
   const selectedModel = modelPick.model;
   console.log(`  Selected model: ${selectedModel} (${modelPick.reason})`);
 
-  // Real minimal OpenAI API request
+  // Real minimal OpenRouter API request via the app's callLlm
   const llmResult = await callLlm(
     PROVIDER,
     selectedModel,
@@ -158,27 +167,27 @@ async function main() {
     { maxAttempts: 1, timeoutMs: 30_000, temperature: 0 },
   );
 
-  const openaiOk = llmResult.ok && !!llmResult.text;
+  const openrouterOk = llmResult.ok && !!llmResult.text;
   record(
-    "OpenAI API call",
-    openaiOk,
-    openaiOk
-      ? `Provider=openai, Model=${selectedModel}, Response="${llmResult.text?.slice(0, 50)}", Status=${llmResult.status}`
+    "OpenRouter API call",
+    openrouterOk,
+    openrouterOk
+      ? `Provider=openrouter, Model=${selectedModel}, Response="${llmResult.text?.slice(0, 50)}", Status=${llmResult.status}`
       : `Failed: ${redact(llmResult.error ?? "unknown")}`,
-    `Real callLlm("openai", "${selectedModel}") — minimal chat completion`,
+    `Real callLlm("openrouter", "${selectedModel}") — minimal chat completion`,
   );
 
   // Verify secret does not appear in logs or response
   const responseText = llmResult.text ?? "";
-  const secretInResponse = openaiKey && responseText.includes(openaiKey);
+  const secretInResponse = openrouterKey && responseText.includes(openrouterKey);
   if (secretInResponse) {
-    record("OpenAI secret safety", false, "API key found in response text!", "Response scan");
+    record("OpenRouter secret safety", false, "API key found in response text!", "Response scan");
   } else {
-    record("OpenAI secret safety", true, "API key not present in response or logs", "Response + log scan");
+    record("OpenRouter secret safety", true, "API key not present in response or logs", "Response + log scan");
   }
 
-  if (!openaiOk) {
-    console.log("\n⛔ OpenAI connection failed. Aborting.");
+  if (!openrouterOk) {
+    console.log("\n⛔ OpenRouter connection failed. Aborting.");
     printReport();
     return;
   }
@@ -376,7 +385,7 @@ async function main() {
     "Agent reasoning",
     hasRealDiff,
     `Inspect(${audit.counts.inspectedFiles} files) → Plan(${plan.steps.length} steps, ${plan.model}) → Code(${cs.totals.files} files, +${cs.totals.additions}/-${cs.totals.deletions}, ${cs.model})`,
-    "Full agent pipeline: inspectRepositoryReal → generatePlanReal → implementPlanReal (all real OpenAI calls)",
+    "Full agent pipeline: inspectRepositoryReal → generatePlanReal → implementPlanReal (all real OpenRouter calls)",
   );
 
   if (!hasRealDiff) {
@@ -896,7 +905,7 @@ function printReport() {
   // Map results to the 13 acceptance criteria
   const criteria: { name: string; result?: StepResult }[] = [
     { name: "1. Secure credential retrieval", result: results.find((r) => r.name === "Secure credential retrieval") },
-    { name: "2. OpenAI API call", result: results.find((r) => r.name === "OpenAI API call") },
+    { name: "2. OpenRouter API call", result: results.find((r) => r.name === "OpenRouter API call") },
     { name: "3. GitHub authentication", result: results.find((r) => r.name === "GitHub authentication") },
     { name: "4. Repository clone", result: results.find((r) => r.name === "Repository clone") },
     { name: "5. Agent reasoning", result: results.find((r) => r.name === "Agent reasoning") },
