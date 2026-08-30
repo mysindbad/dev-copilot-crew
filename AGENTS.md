@@ -56,6 +56,10 @@ The platform persists a checkpoint of its work into the target repository under
 architecture.md, progress.md, decisions.md, agent-context.md, history/checkpoints.jsonl).
 - **Bootstrap/recovery:** `state.server.ts:bootstrapStateReal` reads the dir from GitHub
   and compares against the live branch head (state is a checkpoint, not authority).
+  Consistency quirk: a checkpoint records the head *before* its own commit (a file can't
+  hold its own SHA), so when the current head is a `chore(state):` commit the check
+  compares `lastCommitSha` to the head's **parent**, not the head — otherwise every
+  checkpoint would falsely look "stale".
 - **Checkpoint:** `state.server.ts:checkpointStateReal` commits the files to the
   configured branch (fast-forward only, never force) with `chore(state): ...` messages.
 - **Wiring:** `workspace.tsx` bootstraps on repo connect and checkpoints after each

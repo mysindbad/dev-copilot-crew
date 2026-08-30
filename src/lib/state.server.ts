@@ -102,13 +102,24 @@ async function getBranchHead(
   repo: string,
   branch: string,
   token: string | null,
-): Promise<{ found: boolean; sha: string | null }> {
+): Promise<{
+  found: boolean;
+  sha: string | null;
+  message: string | null;
+  parentSha: string | null;
+}> {
   const res = await gh(
     `/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`,
     token,
   );
-  if (!res.ok) return { found: false, sha: null };
-  return { found: true, sha: (res.json?.commit?.sha as string) ?? null };
+  if (!res.ok) return { found: false, sha: null, message: null, parentSha: null };
+  const c = res.json?.commit;
+  return {
+    found: true,
+    sha: (c?.sha as string) ?? null,
+    message: (c?.commit?.message as string) ?? null,
+    parentSha: (c?.parents?.[0]?.sha as string) ?? null,
+  };
 }
 
 function tryParse<T>(raw: string): T | null {
@@ -179,10 +190,22 @@ export async function bootstrapStateReal(input: {
 
   const inconsistencies: string[] = [];
   if (state) {
-    if (state.repository.lastCommitSha && state.repository.lastCommitSha !== actualSha) {
-      inconsistencies.push(
-        `Repository moved since the checkpoint: state recorded commit ${state.repository.lastCommitSha.slice(0, 7)} but the actual ${input.branch} head is ${actualSha.slice(0, 7)}. Re-inspect to reconcile.`,
-      );
+    if (state.repository.lastCommitSha) {
+      // A file cannot contain the SHA of the commit that contains it, so the
+      // checkpoint records the branch head *before* it was created (its
+      // parent) as `lastCommitSha`. When the current head is itself a state
+      // checkpoint commit, the checkpoint's recorded head is the head's PARENT
+      // — compare against that, not the head, or every checkpoint would
+      // falsely look "stale". When the head is a non-state commit, the source
+      // tree moved after the checkpoint — compare against the head itself.
+      const isStateCommit =
+        !!head.message && head.message.startsWith("chore(state):");
+      const compareTarget = isStateCommit ? head.parentSha : head.sha;
+      if (compareTarget && state.repository.lastCommitSha !== compareTarget) {
+        inconsistencies.push(
+          `Repository moved since the checkpoint: state recorded commit ${state.repository.lastCommitSha.slice(0, 7)} but the actual ${input.branch} head is ${actualSha.slice(0, 7)}. Re-inspect to reconcile.`,
+        );
+      }
     }
     if (state.schemaVersion !== STATE_SCHEMA_VERSION) {
       inconsistencies.push(
