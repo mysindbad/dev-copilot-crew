@@ -463,12 +463,19 @@ export const testProvider = createServerFn({ method: "POST" })
     });
   });
 
-export const getSecretsStatus = createServerFn({ method: "GET" }).handler(async () => ({
-  github: Boolean(process.env["GITHUB_TOKEN"]),
-  gemini: Boolean(process.env["GEMINI_API_KEY"]),
-  openrouter: Boolean(process.env["OPENROUTER_API_KEY"]),
-  groq: Boolean(process.env["GROQ_API_KEY"]),
-  mistral: Boolean(process.env["MISTRAL_API_KEY"]),
-  huggingface: Boolean(process.env["HF_API_KEY"]),
-  lovable: Boolean(process.env["LOVABLE_API_KEY"]),
-}));
+export const getSecretsStatus = createServerFn({ method: "GET" }).handler(async () => {
+  // Check both the encrypted vault and process.env so the UI reflects
+  // credentials stored in either place.
+  const { hasVaultSecret } = await import("./vault.server");
+  return {
+    github: Boolean(process.env["GITHUB_TOKEN"]) || hasVaultSecret("GITHUB_TOKEN"),
+    openai: Boolean(process.env["OPENAI_API_KEY"]) || hasVaultSecret("OPENAI_API_KEY"),
+    anthropic: Boolean(process.env["ANTHROPIC_API_KEY"]) || hasVaultSecret("ANTHROPIC_API_KEY"),
+    gemini: Boolean(process.env["GEMINI_API_KEY"]) || hasVaultSecret("GEMINI_API_KEY"),
+    openrouter: Boolean(process.env["OPENROUTER_API_KEY"]) || hasVaultSecret("OPENROUTER_API_KEY"),
+    groq: Boolean(process.env["GROQ_API_KEY"]) || hasVaultSecret("GROQ_API_KEY"),
+    mistral: Boolean(process.env["MISTRAL_API_KEY"]) || hasVaultSecret("MISTRAL_API_KEY"),
+    huggingface: Boolean(process.env["HF_API_KEY"]) || hasVaultSecret("HF_API_KEY"),
+    lovable: Boolean(process.env["LOVABLE_API_KEY"]),
+  };
+});

@@ -1,17 +1,24 @@
 import { z } from "zod";
 
 /**
- * Client-side holder for user-supplied credentials.
+ * Client-side credential types and migration helpers.
  *
- * Keys are entered by the user in the in-app Secrets panel, kept in this
- * browser only (localStorage), and attached to server-function calls so the
- * server can use them for that request. They are never rendered in clear text
- * and never sent anywhere except this app's own server functions.
+ * ⚠️  Credentials are NO LONGER stored in browser localStorage. The secure
+ * server-side encrypted vault (vault.server.ts) is the single source of
+ * truth. This module now provides:
+ *
+ *   - Types and the SecretsPayload schema (still accepted by server functions
+ *     for backward compatibility, but normally empty).
+ *   - Migration helpers to move any legacy localStorage keys to the vault.
+ *
+ * getUserSecrets() now returns {} — the browser never holds plaintext keys.
  */
 
 export const SecretsPayload = z
   .object({
     GITHUB_TOKEN: z.string().max(500).optional(),
+    OPENAI_API_KEY: z.string().max(500).optional(),
+    ANTHROPIC_API_KEY: z.string().max(500).optional(),
     GEMINI_API_KEY: z.string().max(500).optional(),
     OPENROUTER_API_KEY: z.string().max(500).optional(),
     GROQ_API_KEY: z.string().max(500).optional(),
@@ -22,6 +29,8 @@ export const SecretsPayload = z
 
 export type UserSecrets = {
   GITHUB_TOKEN?: string;
+  OPENAI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
   GEMINI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   GROQ_API_KEY?: string;
@@ -31,6 +40,8 @@ export type UserSecrets = {
 
 export const SECRET_KEYS = [
   "GITHUB_TOKEN",
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
   "GEMINI_API_KEY",
   "OPENROUTER_API_KEY",
   "GROQ_API_KEY",
@@ -38,51 +49,71 @@ export const SECRET_KEYS = [
   "HF_API_KEY",
 ] as const;
 
-const STORAGE_KEY = "aidt.secrets.v1";
+const LEGACY_STORAGE_KEY = "aidt.secrets.v1";
 
-let cache: UserSecrets | null = null;
-const listeners = new Set<() => void>();
-
+/**
+ * Returns an empty object — the browser no longer holds plaintext secrets.
+ * Kept for backward compatibility with server function call sites that pass
+ * `secrets: getUserSecrets()`. The server resolves secrets from the vault.
+ */
 export function getUserSecrets(): UserSecrets {
-  if (cache) return cache;
+  return {};
+}
+
+// ── Migration helpers (read/clear legacy localStorage only) ──────────────
+
+/**
+ * Read any credentials still in localStorage from the old Phase 2 system.
+ * Used ONLY for the one-time migration to the encrypted vault.
+ */
+export function getLegacySecrets(): UserSecrets {
   if (typeof window === "undefined") return {};
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    cache = raw ? (JSON.parse(raw) as UserSecrets) : {};
+    const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as UserSecrets) : {};
   } catch {
-    cache = {};
+    return {};
   }
-  return cache;
 }
 
-export function setUserSecrets(next: UserSecrets) {
-  const clean: UserSecrets = {};
-  for (const k of SECRET_KEYS) {
-    const v = next[k]?.trim();
-    if (v) clean[k] = v;
-  }
-  cache = clean;
+/** True if the browser still has legacy localStorage credentials to migrate. */
+export function hasLegacySecrets(): boolean {
+  const legacy = getLegacySecrets();
+  return SECRET_KEYS.some((k) => Boolean(legacy[k]?.trim()));
+}
+
+/** Remove all legacy credentials from localStorage after successful migration. */
+export function clearLegacySecrets(): void {
+  if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    /* storage unavailable — keys stay in memory for this session */
+    /* ignore */
   }
-  listeners.forEach((l) => l());
-}
-
-export function clearUserSecret(key: (typeof SECRET_KEYS)[number]) {
-  const next = { ...getUserSecrets() };
-  delete next[key];
-  setUserSecrets(next);
-}
-
-export function subscribeUserSecrets(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
 }
 
 /** Masked preview, e.g. "ghp_••••••4f2a". Never shows the full value. */
 export function maskSecret(value: string): string {
+  if (!value) return "";
   if (value.length <= 8) return "••••••";
   return `${value.slice(0, 4)}••••••${value.slice(-4)}`;
+}
+
+// ── Deprecated no-ops (kept so older imports don't crash) ─────────────────
+// Credentials are now managed through the server-side vault. Use the vault
+// server functions (vault.functions.ts) instead of these.
+
+/** @deprecated Use saveCredential from vault.functions.ts */
+export function setUserSecrets(_next: UserSecrets): void {
+  console.warn("[user-secrets] setUserSecrets is deprecated. Use the server-side vault.");
+}
+
+/** @deprecated Use removeCredential from vault.functions.ts */
+export function clearUserSecret(_key: (typeof SECRET_KEYS)[number]): void {
+  console.warn("[user-secrets] clearUserSecret is deprecated. Use the server-side vault.");
+}
+
+/** @deprecated Subscription is a no-op — vault state is refreshed server-side. */
+export function subscribeUserSecrets(_listener: () => void): () => void {
+  return () => {};
 }

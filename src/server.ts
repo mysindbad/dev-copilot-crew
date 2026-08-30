@@ -1,5 +1,11 @@
 import "./lib/error-capture";
 
+// Initialize the encrypted credential vault at startup so getSecret() can
+// read from it synchronously during request handling.
+void import("./lib/vault.server").then((m) => m.initVault()).catch((err) =>
+  console.warn("[vault] init failed:", err instanceof Error ? err.message : String(err)),
+);
+
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 

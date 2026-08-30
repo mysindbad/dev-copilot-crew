@@ -51,9 +51,11 @@ export interface ProviderConfig {
 
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
-/** Boolean flags for each configured secret (server env or user-supplied). */
+/** Boolean flags for each configured secret (server env or vault). */
 type SecretFlags = {
   github: boolean;
+  openai: boolean;
+  anthropic: boolean;
   gemini: boolean;
   openrouter: boolean;
   groq: boolean;
@@ -182,6 +184,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   >({});
   const [serverSecrets, setServerSecrets] = useState<SecretFlags>({
     github: false,
+    openai: false,
+    anthropic: false,
     gemini: false,
     openrouter: false,
     groq: false,
@@ -259,6 +263,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void secretsStatusFn({}).then((s) =>
       setServerSecrets({
         github: Boolean(s.github),
+        openai: Boolean(s.openai),
+        anthropic: Boolean(s.anthropic),
         gemini: Boolean(s.gemini),
         openrouter: Boolean(s.openrouter),
         groq: Boolean(s.groq),
@@ -273,14 +279,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     refreshSecrets();
   }, [refreshSecrets]);
 
-  const userSecrets = hydrated || secretTick ? getUserSecrets() : {};
+  // getUserSecrets() now returns {} — secrets come from the server-side vault.
   const keyStatus: SecretFlags = {
-    github: Boolean(serverSecrets.github || userSecrets.GITHUB_TOKEN),
-    gemini: Boolean(serverSecrets.gemini || userSecrets.GEMINI_API_KEY),
-    openrouter: Boolean(serverSecrets.openrouter || userSecrets.OPENROUTER_API_KEY),
-    groq: Boolean(serverSecrets.groq || userSecrets.GROQ_API_KEY),
-    mistral: Boolean(serverSecrets.mistral || userSecrets.MISTRAL_API_KEY),
-    huggingface: Boolean(serverSecrets.huggingface || userSecrets.HF_API_KEY),
+    github: serverSecrets.github,
+    openai: serverSecrets.openai,
+    anthropic: serverSecrets.anthropic,
+    gemini: serverSecrets.gemini,
+    openrouter: serverSecrets.openrouter,
+    groq: serverSecrets.groq,
+    mistral: serverSecrets.mistral,
+    huggingface: serverSecrets.huggingface,
     lovable: serverSecrets.lovable,
   };
 
