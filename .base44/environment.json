@@ -4,33 +4,48 @@
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
   "secrets": [
     {
+      "name": "CREDENTIAL_ENCRYPTION_KEY",
+      "description": "Master encryption key for the server-side credential vault (AES-256-GCM). Generate with: openssl rand -base64 32. Without this, stored credentials use an ephemeral key and will NOT survive a restart. Set once and keep stable.",
+      "requiredAtBoot": false
+    },
+    {
       "name": "GITHUB_TOKEN",
-      "description": "GitHub Personal Access Token with repo access — used to inspect repositories and commit changes. Optional for boot; required for the agent pipeline to function.",
+      "description": "GitHub Personal Access Token with repo access — used to inspect repositories and commit changes. Can also be stored in the vault via the CredentialsPopover UI.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "description": "OpenAI API key — optional, can be stored in the vault via the CredentialsPopover UI.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "description": "Anthropic API key — optional, can be stored in the vault via the CredentialsPopover UI.",
       "requiredAtBoot": false
     },
     {
       "name": "GEMINI_API_KEY",
-      "description": "Google Gemini API key — one of the optional AI provider keys. At least one provider key is needed for the agents to run.",
+      "description": "Google Gemini API key — optional, can be stored in the vault via the CredentialsPopover UI.",
       "requiredAtBoot": false
     },
     {
       "name": "OPENROUTER_API_KEY",
-      "description": "OpenRouter API key — optional AI provider key.",
+      "description": "OpenRouter API key — optional, can be stored in the vault via the CredentialsPopover UI.",
       "requiredAtBoot": false
     },
     {
       "name": "GROQ_API_KEY",
-      "description": "Groq API key — optional AI provider key.",
+      "description": "Groq API key — optional, can be stored in the vault via the CredentialsPopover UI.",
       "requiredAtBoot": false
     },
     {
       "name": "MISTRAL_API_KEY",
-      "description": "Mistral API key — optional AI provider key.",
+      "description": "Mistral API key — optional, can be stored in the vault via the CredentialsPopover UI.",
       "requiredAtBoot": false
     },
     {
       "name": "HF_API_KEY",
-      "description": "Hugging Face API key — optional AI provider key.",
+      "description": "Hugging Face API key — optional, can be stored in the vault via the CredentialsPopover UI.",
       "requiredAtBoot": false
     }
   ]

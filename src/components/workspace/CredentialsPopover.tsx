@@ -13,8 +13,8 @@ import {
   removeCredential,
   getCredentialMetadata,
   migrateCredentials,
-  type SecretMetadata,
 } from "@/lib/vault.functions";
+import type { SecretMetadata } from "@/lib/vault.server";
 import {
   hasLegacySecrets,
   getLegacySecrets,
@@ -266,7 +266,7 @@ export function CredentialsPopover() {
         {/* Key list */}
         <div className="max-h-80 space-y-1 overflow-y-auto p-2">
           {SECRET_KEYS_LIST.map((key) => {
-            const meta = KEY_META[key];
+            const meta = KEY_META[key]!;
             const m = metadata[key];
             const configured = m?.configured ?? false;
             const isEditing = editing.has(key);

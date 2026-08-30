@@ -37,13 +37,34 @@ docker compose -f docker-compose.base44.yml up -d --build
   `docker compose exec web npx tsc --noEmit`.
 - **All server functions use the deprecated `.inputValidator()`** (consistent with the
   rest of the codebase) — a warning, not an error. Don't "fix" just the new ones.
-- **Secrets are never committed.** Credentials live in env vars or per-request user
-  overrides (`secrets.server.ts` AsyncLocalStorage). The app boots fine with no secrets
-  (shows "not configured" states); it only needs them to actually run the agent pipeline.
+- **Secrets are never committed.** Credentials live in the encrypted server-side vault
+  (`vault.server.ts`), env vars, or per-request overrides (`secrets.server.ts`
+  AsyncLocalStorage). The app boots fine with no secrets (shows "not configured" states);
+  it only needs them to actually run the agent pipeline.
 
 ### Credentials (external, user-supplied)
-`GITHUB_TOKEN`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`,
-`MISTRAL_API_KEY`, `HF_API_KEY` — all optional at boot. See `.base44/environment.json`.
+`GITHUB_TOKEN`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
+`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `HF_API_KEY` — all optional
+at boot. See `.base44/environment.json`.
+
+### Credential vault (Phase 3 — server-side encrypted storage)
+Credentials are stored in an **encrypted server-side vault**, NOT browser localStorage.
+- **Vault module:** `src/lib/vault.server.ts` — AES-256-GCM encryption at rest.
+  Master key from `CREDENTIAL_ENCRYPTION_KEY` env var (scrypt-derived, per-vault salt).
+  Stored at `/data/vault/credentials.json` (Docker volume `vault_data`, outside repo).
+- **Vault functions:** `src/lib/vault.functions.ts` — `saveCredential`,
+  `removeCredential`, `getCredentialMetadata`, `migrateCredentials`. Browser only
+  receives metadata (configured, maskedKey, lastValidated, lastValidationStatus).
+  Never returns plaintext.
+- **Secrets abstraction:** `src/lib/secrets.server.ts` `getSecret()` resolution order:
+  1. AsyncLocalStorage override (per-request, normally empty)
+  2. Encrypted vault (vault.server.ts)
+  3. process.env
+  `initSecrets()` is called at server startup (`server.ts`) to wire the vault bridge.
+- **Migration:** `CredentialsPopover` detects legacy localStorage keys and offers
+  one-time migration to the vault. After migration, localStorage is cleared.
+- **UI:** `CredentialsPopover.tsx` on `/workspace` — save/replace/remove credentials
+  via vault server functions. Shows masked keys, never plaintext.
 
 ### Verify it works
 - `curl -sf -H "Host: external-preview.example.com" http://localhost:3000/` → 200.
@@ -57,8 +78,9 @@ docker compose -f docker-compose.base44.yml up -d --build
 - **Top bar** (`WorkspaceTopBar.tsx`): repo name, branch, commit, build status, agent phase.
 - **Provider/model control** (`ProviderModelControl.tsx`): popover to pick provider +
   model; fetches live model lists via `testProvider` server fn; never fabricates names.
-- **Credentials popover** (`CredentialsPopover.tsx`): add/remove/reveal API keys in-browser
-  (localStorage via `user-secrets.ts`); server-side keys shown as "server" badge.
+- **Credentials popover** (`CredentialsPopover.tsx`): add/replace/remove API keys via
+  the server-side encrypted vault (`vault.functions.ts`). Shows masked keys only —
+  plaintext never reaches the browser. Migration banner for legacy localStorage keys.
 - **File explorer** (`FileExplorer.tsx`): GitHub tree via `fetchRepoTree`; highlights
   agent-modified files.
 - **Code editor** (`EditorPanel.tsx` + `CodeViewer.tsx`): Prism-highlighted, read-only,

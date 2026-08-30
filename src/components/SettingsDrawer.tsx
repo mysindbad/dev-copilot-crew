@@ -35,6 +35,18 @@ const META: Record<Key, { title: string; hint: string; placeholder: string; link
     placeholder: "ghp_… / github_pat_…",
     link: KEY_SOURCES.github,
   },
+  OPENAI_API_KEY: {
+    title: "مفتاح OpenAI",
+    hint: "من لوحة تحكم OpenAI.",
+    placeholder: "sk-…",
+    link: "https://platform.openai.com/api-keys",
+  },
+  ANTHROPIC_API_KEY: {
+    title: "مفتاح Anthropic",
+    hint: "من لوحة تحكم Anthropic.",
+    placeholder: "sk-ant-…",
+    link: "https://console.anthropic.com/settings/keys",
+  },
   GEMINI_API_KEY: {
     title: "مفتاح Google Gemini (مجاني)",
     hint: "Google كتعطي مفتاح مجاني من AI Studio.",
@@ -121,6 +133,8 @@ export function SettingsDrawer() {
 
   const serverHas: Record<Key, boolean> = {
     GITHUB_TOKEN: serverSecrets.github,
+    OPENAI_API_KEY: serverSecrets.openai,
+    ANTHROPIC_API_KEY: serverSecrets.anthropic,
     GEMINI_API_KEY: serverSecrets.gemini,
     OPENROUTER_API_KEY: serverSecrets.openrouter,
     GROQ_API_KEY: serverSecrets.groq,

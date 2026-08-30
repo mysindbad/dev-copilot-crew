@@ -15,6 +15,9 @@ import {
   type SecretMetadata,
 } from "./vault.server";
 
+// Re-export so the browser imports metadata types from one place.
+export type { SecretMetadata };
+
 // ── Schemas ──────────────────────────────────────────────────────────────
 
 const SaveInput = z.object({
