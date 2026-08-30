@@ -1,3 +1,5 @@
+// This file serves as the server entry point, wiring up the TanStack Start server handler with catastrophic SSR error normalization.
+
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
