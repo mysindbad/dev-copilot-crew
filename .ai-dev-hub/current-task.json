@@ -1,0 +1,15 @@
+{
+  "task": "Add a brief developer-only comment at the top of the main server entry point file explaining its purpose. Do not change any runtime behavior — only add a comment.",
+  "status": "completed",
+  "phase": "done",
+  "completed": [
+    "inspect",
+    "plan",
+    "code",
+    "git"
+  ],
+  "remaining": [],
+  "lastAction": "Changes committed and checkpoint persisted",
+  "nextAction": "Fresh-workspace recovery test",
+  "updatedAt": "2026-08-30T02:14:13.429Z"
+}

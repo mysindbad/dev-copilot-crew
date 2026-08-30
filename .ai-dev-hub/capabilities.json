@@ -1,0 +1,23 @@
+{
+  "agents": [
+    "Project Manager",
+    "Inspector",
+    "Architect",
+    "Coder",
+    "Review Board",
+    "Git Manager"
+  ],
+  "providers": [
+    "openrouter"
+  ],
+  "integrations": [
+    "github"
+  ],
+  "phases": [
+    "inspect",
+    "plan",
+    "code",
+    "review",
+    "git"
+  ]
+}
