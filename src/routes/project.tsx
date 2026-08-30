@@ -3,6 +3,7 @@ import { GitCommitHorizontal } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { InspectionPanel } from "@/components/InspectionPanel";
 import { RepositoryAuditView } from "@/components/RepositoryAuditView";
+import { ProjectStateView } from "@/components/ProjectStateView";
 import { useWorkspace } from "@/lib/workspace";
 
 export const Route = createFileRoute("/project")({
@@ -69,6 +70,8 @@ function ProjectPage() {
           </div>
         )}
       </section>
+
+      <ProjectStateView />
 
       <InspectionPanel
         repoUrl={repoConfig.repoUrl}

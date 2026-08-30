@@ -28,6 +28,14 @@ import type { ArchitectPlan } from "@/lib/architect.types";
 import type { ChangeSet } from "@/lib/coder.types";
 import type { ReviewBoardResult } from "@/lib/review.types";
 import type { GitResult } from "@/lib/git.types";
+import { bootstrapProjectState, checkpointProjectState } from "@/lib/state.functions";
+import type {
+  BootstrapResult,
+  CheckpointRequest,
+  StatePhase,
+  AuditFacts,
+  CurrentTask,
+} from "@/lib/state.types";
 export interface RepoConfig {
   repoUrl: string;
   branch: string;
@@ -124,6 +132,8 @@ interface Ctx {
   clearChat: () => void;
   pipeline: { running: boolean; phase: PipelinePhase; note: string };
   runPipeline: (task: string) => Promise<void>;
+  recoveredState: BootstrapResult | null;
+  bootstrapState: () => Promise<void>;
 }
 
 const WorkspaceContext = createContext<Ctx | null>(null);
@@ -149,6 +159,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const reviewFn = useServerFn(reviewChangeSet);
   const gitFn = useServerFn(commitStagedChanges);
   const chatFn = useServerFn(teamLeadChat);
+  const bootstrapStateFn = useServerFn(bootstrapProjectState);
+  const checkpointFn = useServerFn(checkpointProjectState);
 
   const [repoConfig, setRepoConfig] = useState<RepoConfig>({ repoUrl: "", branch: "main" });
   const [providerConfig, setProviderConfig] = useState<ProviderConfig>({
@@ -164,6 +176,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [changeSet, setChangeSet] = useState<ChangeSet | null>(null);
   const [review, setReview] = useState<ReviewBoardResult | null>(null);
   const [gitResult, setGitResult] = useState<GitResult | null>(null);
+  const [recoveredState, setRecoveredState] = useState<BootstrapResult | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<
     Partial<Record<ProviderId, ProviderStatus>>
   >({});
@@ -193,6 +206,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   auditRef.current = audit;
   const providerStatusRef = useRef(providerStatuses);
   providerStatusRef.current = providerStatuses;
+  const repoConfigRef = useRef(repoConfig);
+  repoConfigRef.current = repoConfig;
+  const planRef = useRef(plan);
+  planRef.current = plan;
+  const changeSetRef = useRef(changeSet);
+  changeSetRef.current = changeSet;
+  const reviewRef = useRef(review);
+  reviewRef.current = review;
+  const gitResultRef = useRef(gitResult);
+  gitResultRef.current = gitResult;
 
   function forgetUnavailableModel(provider: ProviderId, model: string) {
     setProviderStatuses((prev) => {
@@ -332,6 +355,131 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     };
   }
 
+  /**
+   * Reconstruct project context from `.ai-dev-hub/` in the repository.
+   * Safe to call any time a repository is configured; non-fatal on failure.
+   */
+  const bootstrapState = useCallback(async () => {
+    if (!repoConfigRef.current.repoUrl.trim()) return;
+    const s = step("حارس الحالة", "استعادة حالة المشروع");
+    try {
+      const res = await bootstrapStateFn({
+        data: {
+          repoUrl: repoConfigRef.current.repoUrl,
+          branch: repoConfigRef.current.branch,
+          secrets: getUserSecrets(),
+        },
+      });
+      setRecoveredState(res);
+      if (res.ok && res.recovered.state) {
+        s.ok(
+          res.consistent
+            ? `v${res.recovered.state.stateVersion} · متسق`
+            : `v${res.recovered.state.stateVersion} · غير متسق: ${res.inconsistencies.length}`,
+        );
+      } else if (res.ok) {
+        s.ok("لا توجد حالة سابقة");
+      } else {
+        s.fail(arabize(res.error ?? ""));
+      }
+    } catch {
+      s.fail("انقطاع في الاتصال");
+    }
+  }, [bootstrapStateFn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Persist a checkpoint into the repository's `.ai-dev-hub/`. Non-fatal: a
+   * failure is logged but never breaks the pipeline. Reads all reactive
+   * values from refs so the single stable instance always sees fresh state.
+   */
+  const checkpoint = useCallback(
+    async (m: {
+      repository: string;
+      phase: StatePhase;
+      completedPhases: StatePhase[];
+      lastSuccess: string;
+      lastFailure?: string | null;
+      nextAction: string;
+      task: CurrentTask;
+      pendingWork?: string[];
+      knownProblems: string[] | undefined;
+      newDecisions: string[] | undefined;
+    }) => {
+      if (!m.repository) return;
+      const cfg = providerRef.current;
+      const audit = auditRef.current;
+      const auditFacts: AuditFacts | null = audit
+        ? {
+            repository: audit.repository,
+            branch: audit.branch,
+            commitSha: audit.commitSha,
+            frontend: audit.stack.frontend.value,
+            backend: audit.stack.backend.value,
+            database: audit.stack.database.value,
+            deployment: audit.stack.deployment.value,
+            packageManager: audit.stack.packageManager.value,
+            languages: audit.stack.languages,
+            entryPoints: audit.entryPoints.map((e) => e.path),
+            apiRoutes: audit.apiMap.length,
+            fileCount: audit.counts.totalFiles,
+            buildCommand: audit.buildCommand,
+            devCommand: audit.devCommand,
+            envNames: audit.envReferences.map((e) => e.name),
+            risks: audit.risks,
+          }
+        : null;
+      const req = {
+        repository: m.repository,
+        branch: repoConfigRef.current.branch,
+        phase: m.phase,
+        completedPhases: m.completedPhases,
+        capabilities: ["inspect", "plan", "code", "review", "git-commit", "state-persistence"],
+        enabledIntegrations: ["github"],
+        configuredProviders: cfg.primaryProvider ? [cfg.primaryProvider] : [],
+        defaultModel: cfg.primaryModel || null,
+        workspace: {
+          hasAudit: Boolean(auditRef.current),
+          hasPlan: Boolean(planRef.current),
+          hasChangeSet: Boolean(changeSetRef.current),
+          hasReview: Boolean(reviewRef.current),
+          hasGitResult: Boolean(gitResultRef.current),
+        },
+        buildStatus: "unknown",
+        testStatus: "unknown",
+        pendingWork: m.pendingWork ?? m.task.remaining,
+        knownProblems: m.knownProblems ?? [],
+        lastSuccessfulOperation: m.lastSuccess,
+        lastFailedOperation: m.lastFailure ?? null,
+        recommendedNextAction: m.nextAction,
+        task: m.task,
+        auditFacts,
+        newDecisions: m.newDecisions ?? [],
+        secrets: getUserSecrets(),
+      };
+      try {
+        const res = await checkpointFn({ data: req });
+        if (res.ok) {
+          log({
+            agent: "حارس الحالة",
+            action: "حفظ نقطة المرجع",
+            state: "done",
+            detail: `v${res.stateVersion} · ${res.commitSha?.slice(0, 7) ?? ""}`,
+          });
+        } else {
+          log({
+            agent: "حارس الحالة",
+            action: "حفظ نقطة المرجع",
+            state: "failed",
+            detail: arabize(res.error ?? ""),
+          });
+        }
+      } catch {
+        log({ agent: "حارس الحالة", action: "حفظ نقطة المرجع", state: "failed", detail: "انقطاع" });
+      }
+    },
+    [checkpointFn], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   const runPipeline = useCallback(
     async (task: string) => {
       if (pipeline.running) return;
@@ -348,16 +496,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           role: "assistant",
           agent: "مدير المشروع",
           content:
-            "ما قدرتش نبدا: المستودع ماشي متصل. حل الإعدادات (الأيقونة فوق) ودخّل رابط المستودع والتوكن، ومن بعد نبداو.",
+            "ما قدرنش نبدا: المستودع ماشي متصل. حل الإعدادات (الأيقونة فوق) ودخّل رابط المستودع والتوكن، ومن بعد نبداو.",
         });
         return;
       }
+      // Reconstruct any prior project state from the repository before working.
+      void bootstrapState();
       const model = await ensureModel(taskKind(task), true);
       if (!model) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: "ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام دابا. عاود جرّب بعد شوية.",
+          content: "ما قدرنش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام دابا. عاود جرّب بعد شوية.",
         });
         return;
       }
@@ -388,6 +538,38 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         agent: "مدير المشروع",
         content: `واخا. سلّمت المهمة للفريق:\n«${task}»\nغادي نتبع معاك كل خطوة هنا.`,
       });
+
+      const ts = () => new Date().toISOString();
+      const checkpointAt = (
+        phase: StatePhase,
+        completedPhases: StatePhase[],
+        lastSuccess: string,
+        nextAction: string,
+        status: CurrentTask["status"],
+        remaining: string[],
+        lastAction: string,
+        extra?: { lastFailure?: string | null; knownProblems?: string[]; newDecisions?: string[] },
+      ) =>
+        checkpoint({
+          repository: repoName,
+          phase,
+          completedPhases,
+          lastSuccess,
+          lastFailure: extra?.lastFailure ?? null,
+          nextAction,
+          task: {
+            task,
+            status,
+            phase,
+            completed: completedPhases,
+            remaining,
+            lastAction,
+            nextAction,
+            updatedAt: ts(),
+          },
+          knownProblems: extra?.knownProblems,
+          newDecisions: extra?.newDecisions,
+        });
 
       try {
         // 1) Repository audit (reuse the existing one when available).
@@ -423,6 +605,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               ? `فحصت جميع الملفات النصية القابلة للفحص: ${res.audit.counts.inspectedFiles} من ${res.audit.counts.inspectableFiles} (${res.audit.counts.totalFiles} ملف إجمالًا)، ووجدت ${res.audit.apiMap.length} مسار API، عند النسخة ${res.audit.commitSha.slice(0, 7)}.`
               : `الفحص جزئي: قريت ${res.audit.counts.inspectedFiles} من ${res.audit.counts.inspectableFiles} ملف نصي قابل للفحص (${res.audit.counts.totalFiles} ملف إجمالًا). الملفات اللي ما تقراتش ما غاديش ندّعي أننا فحصناها.`,
           });
+          await checkpointAt("inspect", ["inspect"], "Repository inspected", "Generate architecture plan", "in_progress", ["plan", "code", "review", "git"], "Repository inspected");
         }
 
         // 2) Architect plan.
@@ -459,6 +642,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           model: newPlan.model,
           content: `الخطة جاهزة (${newPlan.steps.length} خطوة):\n${newPlan.summary}`,
         });
+        await checkpointAt("plan", ["inspect", "plan"], "Architecture plan generated", "Implement the plan with the Coder", "in_progress", ["code", "review", "git"], "Plan generated");
 
         // 3) Coder.
         setPipeline({ running: true, phase: "code", note: "" });
@@ -499,6 +683,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           model: cs.model,
           content: `كتبت التعديلات: ${cs.totals.files} ملف (+${cs.totals.additions} / -${cs.totals.deletions}). تقدر تشوفها فصفحة «العمل».`,
         });
+        await checkpointAt("code", ["inspect", "plan", "code"], "Code changes staged", "Review the staged diff", "in_progress", ["review", "git"], "Diff staged for review");
 
         // 4) Review board.
         setPipeline({ running: true, phase: "review", note: "" });
@@ -546,6 +731,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               ? `المراجعة دازت بنجاح ✅ (${revRes.totals.majors} ملاحظة مهمة، ${revRes.totals.minors} بسيطة).`
               : `المراجعة طلبات تعديلات ⚠️: ${revRes.totals.blockers} مشكل مانع و${revRes.totals.majors} ملاحظة خطيرة. ما غاديش نرسلو الكود لـ GitHub.`,
         });
+        await checkpointAt(
+          "review",
+          ["inspect", "plan", "code", "review"],
+          `Review ${revRes.gate === "APPROVED" ? "approved" : "changes requested"}`,
+          revRes.gate === "APPROVED" ? "Commit to a new branch and open a PR" : "Address review findings",
+          revRes.gate === "APPROVED" ? "in_progress" : "blocked",
+          revRes.gate === "APPROVED" ? ["git"] : ["code", "review", "git"],
+          "Review board completed",
+          { knownProblems: revRes.gate === "APPROVED" ? [] : [`${revRes.totals.blockers} blocker(s), ${revRes.totals.majors} major(s)`] },
+        );
 
         if (revRes.gate !== "APPROVED") {
           setPipeline({ running: false, phase: "done", note: "changes_requested" });
@@ -568,7 +763,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             role: "assistant",
             agent: "مدير Git",
             content:
-              "التعديلات موافَق عليها، ولكن التوكن ديالك للقراءة فقط، لهذا ما قدرتش نصاوب الفرع والـ Pull Request. زيد توكن فيه صلاحية repo من الإعدادات ونكمل.",
+              "التعديلات موافَق عليها، ولكن التوكن ديالك للقراءة فقط، لهذا ما قدرنش نصاوب الفرع والـ Pull Request. زيد توكن فيه صلاحية repo من الإعدادات ونكمل.",
           });
           return;
         }
@@ -615,14 +810,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               : "ما تصاوبش Pull Request."
           }`,
         });
+        await checkpointAt(
+          "done",
+          ["inspect", "plan", "code", "review", "git"],
+          `Committed to ${gitRes.report.branch}${gitRes.report.pullRequest ? ` and opened PR #${gitRes.report.pullRequest.number}` : ""}`,
+          "Merge the PR and re-inspect, or start a new task",
+          "completed",
+          [],
+          "Changes committed and PR opened",
+        );
         setPipeline({ running: false, phase: "done", note: "" });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "وقع مشكل غير متوقع.";
+        await checkpointAt("failed", [], "—", "Fix the failure and retry", "failed", ["inspect", "plan", "code", "review", "git"], "Pipeline failed", { lastFailure: msg, knownProblems: [msg] });
         setPipeline({ running: false, phase: "failed", note: msg });
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: `وقفنا: ${msg}\nقول لي «عاود» ونعاودو، ولا صحّح الإعدادات وعاود.`,
+          content: `وقفنا: ${msg}\nقول لي «عاود» ونعاودو، لا صحّح الإعدادات وعاود.`,
         });
       }
     },
@@ -637,7 +842,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       repoConfig.repoUrl,
       reviewFn,
       testRepoFn,
-    ],
+    ], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const sendMessage = useCallback(
@@ -663,7 +868,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: "ما قدرتش نجاوب دابا: الذكاء الاصطناعي ماشي متاح. عاود جرّب بعد شوية، ولا زيد مفتاح ديالك ف«الإعدادات».",
+          content: "ما قدرتش نجاوب دابا: الذكاء الاصطناعي ماشي متاح. عاود جرّب بعد شوية، لا زيد مفتاح ديالك ف«الإعدادات».",
         });
         return;
       }
@@ -806,6 +1011,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       clearChat: () => setMessages([]),
       pipeline,
       runPipeline,
+      recoveredState,
+      bootstrapState,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -829,6 +1036,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       pipeline,
       sendMessage,
       runPipeline,
+      recoveredState,
+      bootstrapState,
       refreshSecrets,
       setProviderStatus,
     ],
