@@ -10,10 +10,12 @@ import { useWorkspace } from "@/lib/workspace";
 import { useActivity } from "@/lib/activity";
 import { arabize } from "@/lib/ar";
 import { CodeViewer, type DiffLine } from "./CodeViewer";
+import { PreviewPanel } from "./PreviewPanel";
 import {
   Terminal as TerminalIcon,
   Activity,
   GitCompare,
+  Eye,
   Loader2,
   Play,
   Trash2,
@@ -23,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Tab = "terminal" | "activity" | "changes";
+type Tab = "terminal" | "preview" | "activity" | "changes";
 
 interface TerminalLine {
   type: "input" | "stdout" | "stderr" | "error" | "system";
@@ -41,6 +43,7 @@ export function BottomPanel() {
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-border px-2 pt-1.5">
         <TabButton active={tab === "terminal"} onClick={() => setTab("terminal")} icon={TerminalIcon} label="Terminal" />
+        <TabButton active={tab === "preview"} onClick={() => setTab("preview")} icon={Eye} label="Preview" />
         <TabButton
           active={tab === "activity"}
           onClick={() => setTab("activity")}
@@ -59,6 +62,7 @@ export function BottomPanel() {
 
       <div className="flex-1 overflow-hidden">
         {tab === "terminal" && <TerminalView />}
+        {tab === "preview" && <PreviewPanel />}
         {tab === "activity" && <ActivityView />}
         {tab === "changes" && <ChangesView />}
       </div>

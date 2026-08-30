@@ -4,12 +4,10 @@
  * from the live workspace context, never fabricated.
  */
 import { useWorkspace } from "@/lib/workspace";
-import { StatusPill } from "@/components/StatusPill";
 import {
   GitBranch,
   GitCommitHorizontal,
   Circle,
-  Cpu,
   Bot,
   Settings,
   ArrowLeft,
@@ -20,6 +18,8 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ProviderModelControl } from "./ProviderModelControl";
+import { CredentialsPopover } from "./CredentialsPopover";
 
 type PhaseTone = "ok" | "warn" | "idle" | "fail";
 interface PhaseMeta {
@@ -92,17 +92,13 @@ export function WorkspaceTopBar({ onOpenSettings }: { onOpenSettings: () => void
 
       {/* Spacer */}
       <div className="ml-auto flex items-center gap-2">
-        {/* Provider + model */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Cpu className="size-3.5" />
-          <span className="capitalize">{providerConfig.primaryProvider}</span>
-          {providerConfig.primaryModel && (
-            <>
-              <span className="text-muted-foreground/50">·</span>
-              <span className="font-mono max-w-[160px] truncate">{providerConfig.primaryModel}</span>
-            </>
-          )}
-        </div>
+        {/* Provider + model selector */}
+        <ProviderModelControl />
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Credentials */}
+        <CredentialsPopover />
 
         <div className="h-5 w-px bg-border" />
 

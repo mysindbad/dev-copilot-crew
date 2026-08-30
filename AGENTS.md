@@ -48,7 +48,26 @@ docker compose -f docker-compose.base44.yml up -d --build
 ### Verify it works
 - `curl -sf -H "Host: external-preview.example.com" http://localhost:3000/` → 200.
 - Home page (`/`) shows the Arabic chat UI; `/project` shows the project + state panels.
+- `/workspace` shows the IDE shell: top bar (repo, branch, provider/model popover,
+  credentials popover, agent state), file explorer, code editor, agent panel, and
+  bottom panel (Terminal / Preview / Agent Activity / Git Changes tabs).
 - `docker compose exec web npx tsc --noEmit` → exit 0.
+
+### Workspace (Phase 2 — `/workspace`)
+- **Top bar** (`WorkspaceTopBar.tsx`): repo name, branch, commit, build status, agent phase.
+- **Provider/model control** (`ProviderModelControl.tsx`): popover to pick provider +
+  model; fetches live model lists via `testProvider` server fn; never fabricates names.
+- **Credentials popover** (`CredentialsPopover.tsx`): add/remove/reveal API keys in-browser
+  (localStorage via `user-secrets.ts`); server-side keys shown as "server" badge.
+- **File explorer** (`FileExplorer.tsx`): GitHub tree via `fetchRepoTree`; highlights
+  agent-modified files.
+- **Code editor** (`EditorPanel.tsx` + `CodeViewer.tsx`): Prism-highlighted, read-only,
+  diff mode for changed files.
+- **Agent panel** (`AgentPanel.tsx`): mode selector (ask/plan/build/fix/review) + chat,
+  reuses workspace conversation + pipeline.
+- **Bottom panel** (`BottomPanel.tsx`): Terminal (restricted allowlist via
+  `terminal.server.ts`), Preview (iframe with device toggles), Agent Activity, Git Changes
+  (diff viewer from real change set).
 
 ### Persistent project state (`.ai-dev-hub/`)
 The platform persists a checkpoint of its work into the target repository under
