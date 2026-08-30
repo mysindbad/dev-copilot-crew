@@ -74,6 +74,7 @@ import {
 
 /** Human-readable Arabic label for a provider id. */
 const PROVIDER_LABEL: Record<ProviderId, string> = {
+  openai: "OpenAI",
   gemini: "Gemini",
   openrouter: "OpenRouter",
   lovable: "الذكاء المدمج",

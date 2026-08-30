@@ -8,6 +8,7 @@
 
 /** All AI providers the app can route to. OpenAI-compatible ones share one call path. */
 export const PROVIDER_IDS = [
+  "openai",
   "gemini",
   "openrouter",
   "lovable",

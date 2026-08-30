@@ -35,6 +35,7 @@ export function redact(message: string): string {
 
 export function hasProviderKey(provider: ProviderId): boolean {
   if (provider === "lovable") return Boolean(process.env["LOVABLE_API_KEY"]);
+  if (provider === "openai") return Boolean(getSecret("OPENAI_API_KEY"));
   if (provider === "gemini") return Boolean(getSecret("GEMINI_API_KEY"));
   if (provider === "openrouter") return Boolean(getSecret("OPENROUTER_API_KEY"));
   if (provider === "groq") return Boolean(getSecret("GROQ_API_KEY"));

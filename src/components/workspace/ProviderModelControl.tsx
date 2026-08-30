@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
+  openai: "OpenAI",
   gemini: "Gemini",
   openrouter: "OpenRouter",
   lovable: "Built-in AI",

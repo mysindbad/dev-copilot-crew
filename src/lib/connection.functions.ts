@@ -259,6 +259,46 @@ export const testProvider = createServerFn({ method: "POST" })
       };
     }
 
+    if (data.provider === "openai") {
+      const key = getSecret("OPENAI_API_KEY");
+      if (!key)
+        return {
+          provider: "openai",
+          configured: false,
+          ok: false,
+          detail: "OPENAI_API_KEY secret is not configured.",
+          models: [],
+        };
+      // List models, then do a minimal chat completion to verify the key works.
+      const modelsRes = await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (!modelsRes.ok)
+        return {
+          provider: "openai",
+          configured: true,
+          ok: false,
+          detail: safeMessage(`OpenAI returned ${modelsRes.status}`),
+          models: [],
+        };
+      const body = (await modelsRes.json()) as { data?: { id: string }[] };
+      // Keep chat-capable models; filter out embedding/tts/whisper/dall-e.
+      const models = (body.data ?? [])
+        .map((m) => m.id)
+        .filter(
+          (id) =>
+            !/embed|tts|whisper|dall-e|moderation|audio|realtime/i.test(id),
+        )
+        .sort();
+      return {
+        provider: "openai",
+        configured: true,
+        ok: true,
+        detail: `${models.length} chat models available`,
+        models,
+      };
+    }
+
     if (data.provider === "gemini") {
       const key = getSecret("GEMINI_API_KEY");
       if (!key)

@@ -29,6 +29,18 @@ function isFree(provider: ProviderId, model: string): boolean {
 function score(provider: ProviderId, model: string, kind: TaskKind): number {
   const m = model.toLowerCase();
   let s = 0;
+  // OpenAI: prefer capable chat/reasoning models; skip embedding/tts/etc.
+  if (provider === "openai") {
+    if (/o3-mini|o4-mini/.test(m)) s += 50;
+    else if (/o1-mini|o3\b/.test(m)) s += 45;
+    else if (/gpt-4o-mini/.test(m)) s += 40;
+    else if (/gpt-4o/.test(m)) s += 55;
+    else if (/gpt-4-turbo/.test(m)) s += 50;
+    else if (/gpt-4\.1/.test(m)) s += 48;
+    else if (/gpt-3\.5/.test(m)) s += 10;
+    if (/embed|tts|whisper|dall-e|moderation|audio|realtime/i.test(m)) return -1000;
+  }
+
   // Gemini may still list legacy models that reject requests from new users.
   // Never select the retired 2.5 Flash route even when it appears in /models.
   if (provider === "gemini" && /^gemini-2\.5-flash(?:-|$)/.test(m)) return -1000;

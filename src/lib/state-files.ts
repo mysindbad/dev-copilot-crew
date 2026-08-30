@@ -93,7 +93,7 @@ const PLATFORM_ARCH = [
   "",
   "- **Stack:** TanStack Start (React 19) + Vite SSR, single fullstack process. No separate backend service.",
   "- **Agent pipeline:** Inspector → Architect → Coder → Review Board → Git Manager, orchestrated by the workspace context.",
-  "- **Provider abstraction:** 6 providers (Gemini, OpenRouter, Lovable, Groq, Mistral, Hugging Face) behind one `callLlm` path with automatic model selection and fallback. No provider is hard-coded.",
+  "- **Provider abstraction:** 7 providers (OpenAI, Gemini, OpenRouter, Lovable, Groq, Mistral, Hugging Face) behind one `callLlm` path with automatic model selection and fallback. No provider is hard-coded.",
   "- **GitHub integration:** read (tree/contents/branches) and write (blobs/tree/commit/branch/PR) via the REST API. The Git Manager commits to a NEW branch only, never the base branch, never force-pushes.",
   "- **Security:** credentials live in server-side env or per-request user overrides (`AsyncLocalStorage`), never logged, never sent to models, never committed. All provider/GitHub text is redacted.",
   "- **Persistence:** this `.ai-dev-hub/` directory is the checkpoint. It stores project state only — never secrets. The actual source code and Git history are authoritative when they conflict with this checkpoint.",
@@ -175,7 +175,7 @@ export function buildAgentContextMd(state: ProjectState, task: CurrentTask, audi
 /* --------------------------------------------------------- decisions.md */
 
 export const FOUNDATIONAL_DECISIONS = [
-  "Provider abstraction over 6 providers — no AI provider is hard-coded; the model is selected automatically per task kind with fallback.",
+  "Provider abstraction over 7 providers — no AI provider is hard-coded; the model is selected automatically per task kind with fallback.",
   "GitHub Personal Access Token for repository access — stored server-side only, never committed, never sent to a model.",
   "Agents are READ-ONLY except the Git Manager — the Architect/Coder/Reviewers never write to GitHub; only the Git Manager commits, and only after human approval.",
   "Coder guardrails — change scope is bounded to approved plan files, content must be complete (no placeholder elisions), protected paths are blocked.",
