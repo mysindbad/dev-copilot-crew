@@ -125,6 +125,40 @@ async function callLlmOnce(
       return { ok: true, text, status: res.status };
     }
 
+    if (provider === "openai") {
+      const key = getSecret("OPENAI_API_KEY");
+      if (!key) return { ok: false, error: "OPENAI_API_KEY is not configured." };
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          temperature,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        return { ok: false, status: res.status, error: redact(`OpenAI ${res.status}: ${body}`) };
+      }
+      const json = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+        error?: { message?: string };
+      };
+      const text = json.choices?.[0]?.message?.content?.trim();
+      if (!text)
+        return {
+          ok: false,
+          status: res.status,
+          error: redact(json.error?.message ?? "OpenAI returned no content."),
+        };
+      return { ok: true, text, status: res.status };
+    }
+
     if (provider === "gemini") {
       const key = getSecret("GEMINI_API_KEY");
       if (!key) return { ok: false, error: "GEMINI_API_KEY is not configured." };
