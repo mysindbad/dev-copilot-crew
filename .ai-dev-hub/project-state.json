@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "platformVersion": "1.0.0",
+  "architectureVersion": "agent-pipeline-v1",
+  "stateVersion": 1,
+  "updatedAt": "2026-08-30T02:11:51.148Z",
+  "repository": {
+    "fullName": "mysindbad/dev-copilot-crew",
+    "branch": "ai-dev-team/e2e-validation-mtf6bkww",
+    "lastCommitSha": "c59d4cb53c9466566ff7df8f35bcbc41245ad8f3"
+  },
+  "phase": "done",
+  "completedPhases": [
+    "inspect",
+    "plan",
+    "code",
+    "review",
+    "git"
+  ],
+  "activePhase": null,
+  "capabilities": [
+    "inspect",
+    "plan",
+    "code",
+    "review",
+    "git-commit",
+    "state-persistence"
+  ],
+  "enabledIntegrations": [
+    "github"
+  ],
+  "configuredProviders": [
+    "openrouter"
+  ],
+  "defaultModel": "inclusionai/ling-3.0-flash-fin:free",
+  "workspace": {
+    "hasAudit": true,
+    "hasPlan": true,
+    "hasChangeSet": true,
+    "hasReview": false,
+    "hasGitResult": true
+  },
+  "buildStatus": "passing",
+  "testStatus": "unknown",
+  "pendingWork": [],
+  "knownProblems": [],
+  "lastSuccessfulOperation": "Committed to ai-dev-team/e2e-validation-mtf6bkww",
+  "lastFailedOperation": null,
+  "recommendedNextAction": "Merge or delete the test branch after validation"
+}
