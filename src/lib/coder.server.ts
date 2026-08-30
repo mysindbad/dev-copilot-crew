@@ -35,9 +35,16 @@ const BLOCKED_PATH = /(^\.git\/)|(^\.github\/workflows\/)|(\.env)|(^|\/)node_mod
 const BINARY_EXT =
   /\.(png|jpe?g|gif|webp|ico|svg|pdf|zip|gz|tar|mp4|mp3|woff2?|ttf|eot|jar|so|dll|exe|lock)$/i;
 
+/** Coerce a value to a string array — small models sometimes return a bare string. */
+const stringArray = z.preprocess((val) => {
+  if (val == null) return [];
+  if (typeof val === "string") return val.trim() ? [val.trim()] : [];
+  return val;
+}, z.array(z.string()).default([]));
+
 const OutputSchema = z.object({
   summary: z.string().default(""),
-  notes: z.array(z.string()).default([]),
+  notes: stringArray,
   files: z
     .array(
       z.object({

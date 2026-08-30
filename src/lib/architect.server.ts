@@ -31,10 +31,17 @@ Rules:
 }
 Valid agent values: "Frontend Developer", "Backend Developer", "QA / Tester", "Security Reviewer", "Code Reviewer", "Debugger", "UI/UX Reviewer".`;
 
+/** Coerce a value to a string array — small models sometimes return a bare string. */
+const stringArray = z.preprocess((val) => {
+  if (val == null) return [];
+  if (typeof val === "string") return val.trim() ? [val.trim()] : [];
+  return val;
+}, z.array(z.string()).default([]));
+
 const PlanSchema = z.object({
   summary: z.string(),
   approach: z.string(),
-  assumptions: z.array(z.string()).default([]),
+  assumptions: stringArray,
   affectedFiles: z
     .array(
       z.object({
@@ -51,15 +58,15 @@ const PlanSchema = z.object({
         title: z.string(),
         detail: z.string().default(""),
         agent: z.string().default("UNKNOWN"),
-        files: z.array(z.string()).default([]),
+        files: stringArray,
         risk: z.string().optional(),
       }),
     )
     .default([]),
-  testStrategy: z.array(z.string()).default([]),
-  risks: z.array(z.string()).default([]),
-  openQuestions: z.array(z.string()).default([]),
-  outOfScope: z.array(z.string()).default([]),
+  testStrategy: stringArray,
+  risks: stringArray,
+  openQuestions: stringArray,
+  outOfScope: stringArray,
 });
 
 function extractJson(text: string): unknown {

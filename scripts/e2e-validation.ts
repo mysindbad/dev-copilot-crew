@@ -776,8 +776,12 @@ No runtime behavior change.`,
   let securityIssues: string[] = [];
 
   // 1. No API key in Git — check all files in the commit
-  if (treeRes.ok) {
-    const tree = (await treeRes.json()) as { tree: { path: string; type: string }[] };
+  const secTreeRes = await fetch(
+    `https://api.github.com/repos/${REPO_URL}/git/trees/${tempBranch}?recursive=1`,
+    { headers: ghHeaders },
+  );
+  if (secTreeRes.ok) {
+    const tree = (await secTreeRes.json()) as { tree: { path: string; type: string }[] };
     for (const item of tree.tree) {
       if (item.type !== "blob") continue;
       // Skip large/binary files
