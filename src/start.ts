@@ -1,3 +1,6 @@
+// Main server entry point for the TanStack Start application.
+// This file configures and exports the start instance with error and CSRF middleware.
+
 import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
