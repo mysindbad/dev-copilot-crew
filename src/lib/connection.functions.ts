@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { SecretsPayload } from "./user-secrets";
 import { PROVIDER_IDS, type ProviderId } from "./architect.types";
+import { parseRepoUrl, redactSecrets } from "./safety";
 
 /**
  * Phase 1 — secure connection layer.
@@ -46,23 +47,10 @@ export interface RepoConnectionResult {
   error?: string;
 }
 
-function parseRepoUrl(input: string): { owner: string; repo: string } | null {
-  const cleaned = input.trim().replace(/\.git$/, "").replace(/\/+$/, "");
-  const patterns = [
-    /^https?:\/\/(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+)$/i,
-    /^git@github\.com:([^/\s]+)\/([^/\s]+)$/i,
-    /^([A-Za-z0-9-_.]+)\/([A-Za-z0-9-_.]+)$/,
-  ];
-  for (const p of patterns) {
-    const m = cleaned.match(p);
-    if (m && m[1] && m[2]) return { owner: m[1], repo: m[2] };
-  }
-  return null;
-}
 
 /** Strip anything that could leak a credential out of a provider message. */
 function safeMessage(message: string): string {
-  return message.replace(/gh[pousr]_[A-Za-z0-9]+/g, "[redacted]").slice(0, 300);
+  return redactSecrets(message, 300);
 }
 
 async function gh(path: string, token: string | null) {
