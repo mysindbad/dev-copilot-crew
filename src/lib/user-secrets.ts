@@ -4,9 +4,9 @@ import { z } from "zod";
  * Client-side holder for user-supplied credentials.
  *
  * Keys are entered by the user in the in-app Secrets panel, kept in this
- * browser only (localStorage), and attached to server-function calls so the
- * server can use them for that request. They are never rendered in clear text
- * and never sent anywhere except this app's own server functions.
+ * memory for the current browser session and attached to server-function calls
+ * so the server can use them for that request. They are never persisted, rendered
+ * in clear text, or sent anywhere except this app's own server functions.
  */
 
 export const SecretsPayload = z
@@ -38,21 +38,11 @@ export const SECRET_KEYS = [
   "HF_API_KEY",
 ] as const;
 
-const STORAGE_KEY = "aidt.secrets.v1";
-
 let cache: UserSecrets | null = null;
 const listeners = new Set<() => void>();
 
 export function getUserSecrets(): UserSecrets {
-  if (cache) return cache;
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    cache = raw ? (JSON.parse(raw) as UserSecrets) : {};
-  } catch {
-    cache = {};
-  }
-  return cache;
+  return cache ?? {};
 }
 
 export function setUserSecrets(next: UserSecrets) {
@@ -62,11 +52,6 @@ export function setUserSecrets(next: UserSecrets) {
     if (v) clean[k] = v;
   }
   cache = clean;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
-  } catch {
-    /* storage unavailable — keys stay in memory for this session */
-  }
   listeners.forEach((l) => l());
 }
 
