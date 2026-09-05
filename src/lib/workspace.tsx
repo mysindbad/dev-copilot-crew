@@ -520,6 +520,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         const planRes = await architectFn({
           data: {
             projectId: currentAudit.projectId,
+            audit: currentAudit,
             request: task,
             primaryProvider: cfg.primaryProvider,
             primaryModel: model,
