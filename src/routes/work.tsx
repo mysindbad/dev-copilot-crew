@@ -158,6 +158,11 @@ function WorkPage() {
                 ? "مطلوب تعديلات قبل الإرسال"
                 : "المراجعة ما كملاتش"}
           </p>
+
+          <p className="mt-1 font-mono text-[0.7rem] text-muted-foreground">
+            tests: {review.verification.tests} · build: {review.verification.build} · security:{" "}
+            {review.verification.security}
+          </p>
           <div className="mt-3 space-y-3">
             {review.reports.map((r) => (
               <div key={r.reviewer} className="rounded-md border border-border p-3">

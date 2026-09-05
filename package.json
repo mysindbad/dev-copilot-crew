@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "test": "bun test",
     "verify": "node scripts/verify.mjs",
     "build": "vite build && node scripts/ensure-cloudflare-config.mjs",
     "build:dev": "vite build --mode development",

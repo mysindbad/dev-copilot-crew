@@ -43,6 +43,7 @@ export type GitErrorKind =
   | "no_write_access"
   | "branch_exists"
   | "base_moved"
+  | "unsafe_path"
   | "rate_limit"
   | "github_error"
   | "network"

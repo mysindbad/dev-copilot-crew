@@ -1,4 +1,5 @@
 import { extractJsonLoose } from "./json-extract";
+import { filePathProblem, redactSecrets } from "./safety";
 import { getSecret } from "./secrets.server";
 import { z } from "zod";
 import type { ArchitectPlan, ProviderId } from "./architect.types";
@@ -30,9 +31,8 @@ const MAX_LAZY_FILES = 6;
 const MAX_READ_BYTES = 120_000;
 const MAX_OUTPUT_BYTES = 120_000;
 
-const BLOCKED_PATH = /(^\.git\/)|(^\.github\/workflows\/)|(\.env)|(^|\/)node_modules(\/|$)/i;
-const BINARY_EXT =
-  /\.(png|jpe?g|gif|webp|ico|svg|pdf|zip|gz|tar|mp4|mp3|woff2?|ttf|eot|jar|so|dll|exe|lock)$/i;
+// Path/extension guardrails live in ./safety (filePathProblem) and are shared
+// with the Git Manager, so staging and writing enforce identical rules.
 
 const OutputSchema = z.object({
   summary: z.string().default(""),
@@ -63,7 +63,7 @@ Hard rules:
 {"summary": string, "notes": string[], "files": [{"path": string, "action": "CREATE"|"MODIFY"|"DELETE", "reason": string, "content": string|null}]}`;
 
 function safeMessage(message: string): string {
-  return message.replace(/gh[pousr]_[A-Za-z0-9]+/g, "[redacted]").slice(0, 240);
+  return redactSecrets(message, 240);
 }
 
 async function readFileAtCommit(
@@ -120,10 +120,7 @@ function normalizeAction(value: string): FileAction {
 }
 
 function pathIsAcceptable(path: string): string | null {
-  if (!path || path.startsWith("/") || path.includes("..")) return "unsafe path";
-  if (BLOCKED_PATH.test(path)) return "protected path (git, workflows, env or dependencies)";
-  if (BINARY_EXT.test(path)) return "binary or lock file";
-  return null;
+  return filePathProblem(path);
 }
 
 export interface CoderArgs {

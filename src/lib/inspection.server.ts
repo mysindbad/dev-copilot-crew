@@ -1,4 +1,5 @@
 import { getSecret } from "./secrets.server";
+import { parseRepoUrl, redactSecrets } from "./safety";
 import type {
   ApiEndpoint,
   ClassifiedFile,
@@ -31,23 +32,11 @@ const LARGE_REPO_FILES = 4000;
 
 const UNK: StackDetection = { value: "UNKNOWN", evidence: [] };
 
-export function parseRepoUrl(input: string): { owner: string; repo: string } | null {
-  const cleaned = input.trim().replace(/\.git$/, "").replace(/\/+$/, "");
-  const patterns = [
-    /^https?:\/\/(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+)$/i,
-    /^git@github\.com:([^/\s]+)\/([^/\s]+)$/i,
-    /^([A-Za-z0-9-_.]+)\/([A-Za-z0-9-_.]+)$/,
-  ];
-  for (const p of patterns) {
-    const m = cleaned.match(p);
-    if (m && m[1] && m[2]) return { owner: m[1], repo: m[2] };
-  }
-  return null;
-}
+export { parseRepoUrl };
 
-/** Remove anything token-shaped from provider text before it reaches a user. */
+/** Remove anything secret-shaped from provider text before it reaches a user. */
 function safeMessage(message: string): string {
-  return message.replace(/gh[pousr]_[A-Za-z0-9]+/g, "[redacted]").slice(0, 240);
+  return redactSecrets(message, 240);
 }
 
 interface GhResponse {

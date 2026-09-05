@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { maskSecret } from "./safety";
 
 /**
  * Client-side holder for user-supplied credentials.
@@ -95,8 +96,4 @@ export function subscribeUserSecrets(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-/** Masked preview, e.g. "ghp_••••••4f2a". Never shows the full value. */
-export function maskSecret(value: string): string {
-  if (value.length <= 8) return "••••••";
-  return `${value.slice(0, 4)}••••••${value.slice(-4)}`;
-}
+export { maskSecret };

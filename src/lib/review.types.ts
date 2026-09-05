@@ -42,6 +42,23 @@ export interface ReviewEvent {
   at: string;
 }
 
+/**
+ * What the review board ACTUALLY verified. Static today: the board is an
+ * AI-only diff review — the platform has no build/test/lint runner, so none
+ * of these may ever be reported as "passed". These statuses are the honest
+ * vocabulary the UI shows next to the gate (not_run / not_available /
+ * ai_review_only).
+ */
+export const VERIFICATION_STATUS = {
+  lint: "not_available",
+  typecheck: "not_available",
+  tests: "not_run",
+  build: "not_run",
+  security: "ai_review_only",
+} as const;
+
+export type VerificationStatus = (typeof VERIFICATION_STATUS)[keyof typeof VERIFICATION_STATUS];
+
 export interface ReviewBoardResult {
   ok: boolean;
   changeSetId: string;
@@ -53,6 +70,7 @@ export interface ReviewBoardResult {
   events: ReviewEvent[];
   totals: { blockers: number; majors: number; minors: number; infos: number };
   gate: "APPROVED" | "CHANGES_REQUESTED" | "FAILED";
+  verification: VerificationStatus;
   error?: string;
   errorKind?: "no_changeset" | "no_provider" | "provider_error" | "invalid_input" | "unknown";
 }

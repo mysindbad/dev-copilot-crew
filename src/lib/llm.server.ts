@@ -1,4 +1,5 @@
 import { getSecret } from "./secrets.server";
+import { redactSecrets } from "./safety";
 import type { ProviderId } from "./architect.types";
 
 /**
@@ -24,13 +25,7 @@ export interface LlmCallOptions {
 
 
 export function redact(message: string): string {
-  return message
-    .replace(/AIza[0-9A-Za-z\-_]{10,}/g, "[redacted]")
-    .replace(/sk-[A-Za-z0-9\-_]{10,}/g, "[redacted]")
-    .replace(/gsk_[A-Za-z0-9]+/g, "[redacted]")
-    .replace(/hf_[A-Za-z0-9]+/g, "[redacted]")
-    .replace(/gh[pousr]_[A-Za-z0-9]+/g, "[redacted]")
-    .slice(0, 400);
+  return redactSecrets(message);
 }
 
 export function hasProviderKey(provider: ProviderId): boolean {

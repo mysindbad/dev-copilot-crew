@@ -2,6 +2,7 @@ import { extractJsonLoose } from "./json-extract";
 import { z } from "zod";
 import type { ProviderId } from "./architect.types";
 import { callLlm, hasProviderKey, redact } from "./llm.server";
+import { VERIFICATION_STATUS } from "./review.types";
 import type {
   ReviewBoardResult,
   ReviewEvent,
@@ -274,6 +275,7 @@ export async function runReviewBoard(input: ReviewBoardInput): Promise<ReviewBoa
     branch: input.branch,
     baseCommitSha: input.baseCommitSha,
     createdAt: now(),
+    verification: VERIFICATION_STATUS,
     events,
   };
 
