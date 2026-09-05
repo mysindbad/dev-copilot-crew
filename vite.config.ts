@@ -11,6 +11,7 @@ export default defineConfig({
   // manifest explicit so Nitro writes dist/server/wrangler.json during production builds.
   nitro: {
     preset: "cloudflare-module",
+    compatibilityDate: "2025-09-02",
     cloudflare: {
       nodeCompat: true,
       deployConfig: true,
