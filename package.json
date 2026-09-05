@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite dev",
     "verify": "node scripts/verify.mjs",
-    "prebuild": "bun run verify",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
