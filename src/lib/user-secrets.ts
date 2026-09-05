@@ -38,21 +38,50 @@ export const SECRET_KEYS = [
   "HF_API_KEY",
 ] as const;
 
+const STORAGE_KEY = "aidevteam.user-secrets.v1";
 let cache: UserSecrets | null = null;
 const listeners = new Set<() => void>();
 
+function cleanSecrets(input: unknown): UserSecrets {
+  const clean: UserSecrets = {};
+  if (!input || typeof input !== "object") return clean;
+  const source = input as Record<string, unknown>;
+  for (const key of SECRET_KEYS) {
+    const value = source[key];
+    if (typeof value === "string" && value.trim()) clean[key] = value.trim();
+  }
+  return clean;
+}
+
+function readStoredSecrets(): UserSecrets {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? cleanSecrets(JSON.parse(raw)) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistSecrets(secrets: UserSecrets) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(secrets));
+  } catch {
+    // Private browsing, blocked storage, or quota errors should not break chat.
+  }
+}
+
 export function getUserSecrets(): UserSecrets {
-  return cache ?? {};
+  if (cache === null) cache = readStoredSecrets();
+  return cache;
 }
 
 export function setUserSecrets(next: UserSecrets) {
-  const clean: UserSecrets = {};
-  for (const k of SECRET_KEYS) {
-    const v = next[k]?.trim();
-    if (v) clean[k] = v;
-  }
+  const clean = cleanSecrets(next);
   cache = clean;
-  listeners.forEach((l) => l());
+  persistSecrets(clean);
+  listeners.forEach((listener) => listener());
 }
 
 export function clearUserSecret(key: (typeof SECRET_KEYS)[number]) {
