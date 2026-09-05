@@ -22,7 +22,11 @@ export interface ChatAttempt {
   ms: number;
 }
 
+export type ChatIntent = "conversation" | "inspect" | "plan" | "implement";
+
 export interface ChatTurn {
+  /** The action implied by the whole conversation, not keyword matching. */
+  intent: ChatIntent;
   reply: string;
   questions: string[];
   suggestedTask: string;
