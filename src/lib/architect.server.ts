@@ -7,7 +7,6 @@ import type {
 } from "./architect.types";
 import type { RepositoryAudit } from "./inspection.types";
 import { recallAudit, rememberAudit } from "./project-memory.server";
-import { inspectRepositoryReal, parseRepoUrl } from "./inspection.server";
 import { callLlm, hasProviderKey, redact } from "./llm.server";
 import { extractJsonLoose } from "./json-extract";
 
@@ -150,25 +149,19 @@ export interface ArchitectArgs {
   backupModels?: string[];
   fallbackProvider: ProviderId | "none";
   fallbackModel: string;
+  audit?: RepositoryAudit;
 }
 
 export async function generatePlanReal(args: ArchitectArgs): Promise<ArchitectResult> {
   const attempts: ArchitectAttempt[] = [];
-  let memory = recallAudit(args.projectId);
-  // Cloudflare Workers may serve inspection and planning from different isolates.
-  // Rebuild the audit from the immutable project identity when local memory is absent.
-  if (!memory) {
-    const separator = args.projectId.lastIndexOf("#");
-    const repoUrl = separator > 0 ? args.projectId.slice(0, separator) : "";
-    const branch = separator > 0 ? args.projectId.slice(separator + 1) : "";
-    if (repoUrl && branch && parseRepoUrl(repoUrl)) {
-      const refreshed = await inspectRepositoryReal({ repoUrl, branch });
-      if (refreshed.ok && refreshed.audit) {
-        rememberAudit(refreshed.audit);
-        memory = recallAudit(args.projectId);
-      }
-    }
+  // The inspection result crosses the server-function boundary explicitly.
+  // Do not re-run the full GitHub inspection here: one inspection can read dozens
+  // of files and would exceed Cloudflare Worker's subrequest limit when chained
+  // into the same user action.
+  if (args.audit?.projectId === args.projectId) {
+    rememberAudit(args.audit);
   }
+  const memory = recallAudit(args.projectId);
   if (!memory) {
     return {
       ok: false,
