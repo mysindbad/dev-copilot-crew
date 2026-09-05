@@ -144,16 +144,21 @@ export async function commitChangeSet(input: CommitInput): Promise<GitResult> {
     const drifted = headSha !== changeSet.baseCommitSha;
     checks.push({
       label: "Base commit still current",
-      state: drifted ? "warn" : "pass",
+      state: drifted ? "fail" : "pass",
       detail: drifted
-        ? `base branch moved to ${headSha.slice(0, 7)}; committing on the audited ${changeSet.baseCommitSha.slice(0, 7)}`
+        ? `base branch moved to ${headSha.slice(0, 7)}; the approved diff must be re-audited`
         : `${changeSet.branch}@${headSha.slice(0, 7)}`,
     });
     push(
       "Base branch checked",
-      drifted ? "warn" : "ok",
-      drifted ? "base moved since the audit" : "base unchanged since the audit",
+      drifted ? "fail" : "ok",
+      drifted ? "base moved since the audit — write blocked" : "base unchanged since the audit",
     );
+    if (drifted)
+      return fail(
+        "The base branch changed after review. Re-run inspection and review before writing.",
+        "base_moved",
+      );
 
     // 3. Branch must not already exist.
     const refRes = await gh(
