@@ -130,6 +130,18 @@ function severity(value: string | undefined): Severity {
 
 const MAX_DIFF_CHARS = 14_000;
 
+function diffExceedsReviewBudget(input: ReviewBoardInput): boolean {
+  let budget = MAX_DIFF_CHARS;
+  for (let index = 0; index < input.files.length; index += 1) {
+    const file = input.files[index]!;
+    const allowed = Math.max(0, Math.min(budget, 6000));
+    if (file.diffText.length > allowed) return true;
+    budget -= Math.min(file.diffText.length, allowed);
+    if (budget <= 0 && index < input.files.length - 1) return true;
+  }
+  return false;
+}
+
 function buildDiffContext(input: ReviewBoardInput): string {
   const header = [
     `Repository: ${input.repository}`,
@@ -289,6 +301,18 @@ export async function runReviewBoard(input: ReviewBoardInput): Promise<ReviewBoa
       errorKind: "no_provider",
     };
 
+  if (diffExceedsReviewBudget(input)) {
+    push("Diff packaged for review", "fail", "The diff is larger than the review context budget");
+    return {
+      ...shell,
+      ok: false,
+      reports: [],
+      totals: { blockers: 0, majors: 0, minors: 0, infos: 0 },
+      gate: "FAILED",
+      error: "Review blocked because the complete diff does not fit in the review context. Split the change into smaller reviews.",
+      errorKind: "invalid_input",
+    };
+  }
   const context = buildDiffContext(input);
   push("Diff packaged for review", "ok", `${input.files.length} file(s), ${context.length} chars`);
 
