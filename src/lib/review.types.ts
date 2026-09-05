@@ -54,5 +54,5 @@ export interface ReviewBoardResult {
   totals: { blockers: number; majors: number; minors: number; infos: number };
   gate: "APPROVED" | "CHANGES_REQUESTED" | "FAILED";
   error?: string;
-  errorKind?: "no_changeset" | "no_provider" | "provider_error" | "unknown";
+  errorKind?: "no_changeset" | "no_provider" | "provider_error" | "invalid_input" | "unknown";
 }
