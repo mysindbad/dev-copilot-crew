@@ -95,7 +95,7 @@ export function filePathProblem(path: string): string | null {
  * is rejected — including URLs that carry embedded credentials.
  */
 export function parseRepoUrl(input: string): { owner: string; repo: string } | null {
-  const cleaned = input.trim().replace(/\.git$/, "").replace(/\/+$/, "");
+  // Strip trailing slashes BEFORE the .git suffix: "owner/repo.git/" would
   const patterns = [
     /^https?:\/\/(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+)$/i,
     /^git@github\.com:([^/\s]+)\/([^/\s]+)$/i,
