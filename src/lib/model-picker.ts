@@ -18,12 +18,30 @@ export interface ModelPick {
   reason: string;
 }
 
-/** OpenRouter and Hugging Face mark free routes with a ":free" suffix. */
-function isFree(provider: ProviderId, model: string): boolean {
+/**
+ * OpenRouter and Hugging Face mark free routes with a ":free" suffix.
+ * Gemini, Groq, and Mistral free tiers depend on the account and quota, so a
+ * model name alone never proves a request is free — those models have UNKNOWN
+ * cost and are excluded whenever the free-only policy is enabled.
+ */
+export function isFreeModel(provider: ProviderId, model: string): boolean {
   if (provider === "openrouter" || provider === "huggingface") return model.endsWith(":free");
-  // Gemini, Groq, and Mistral free tiers depend on the account and quota. A
-  // model name alone does not prove that the request is free.
   return false;
+}
+
+/**
+ * Models eligible under the free-only policy:
+ * - freeOnly=false → every model the provider offers;
+ * - freeOnly=true  → only models whose freeness is VERIFIED (":free" suffix).
+ * A model of unknown cost is never assumed to be free.
+ */
+export function eligibleModels(
+  provider: ProviderId,
+  models: string[],
+  freeOnly: boolean,
+): string[] {
+  if (!freeOnly) return models;
+  return models.filter((model) => isFreeModel(provider, model));
 }
 
 function score(provider: ProviderId, model: string, kind: TaskKind): number {
@@ -32,7 +50,7 @@ function score(provider: ProviderId, model: string, kind: TaskKind): number {
   // Gemini may still list legacy models that reject requests from new users.
   // Never select the retired 2.5 Flash route even when it appears in /models.
   if (provider === "gemini" && /^gemini-2\.5-flash(?:-|$)/.test(m)) return -1000;
-  if (isFree(provider, model)) s += 100;
+  if (isFreeModel(provider, model)) s += 100;
   if (/deprecated|vision-only|embedding|imagen|tts|audio|image/.test(m)) return -1000;
   if (/preview|exp\b|experimental/.test(m)) s -= 5;
 
@@ -92,7 +110,7 @@ export function rankModels(
           ? "المراجعة"
           : "الحوار";
   return models
-    .map((model) => ({ model, s: score(provider, model, kind), free: isFree(provider, model) }))
+    .map((model) => ({ model, s: score(provider, model, kind), free: isFreeModel(provider, model) }))
     .filter((r) => r.s > -1000)
     .sort((a, b) => b.s - a.s)
     .map((r) => ({
