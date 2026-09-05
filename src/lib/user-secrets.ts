@@ -3,10 +3,10 @@ import { z } from "zod";
 /**
  * Client-side holder for user-supplied credentials.
  *
- * Keys are entered by the user in the in-app Secrets panel, kept in this
- * memory for the current browser session and attached to server-function calls
- * so the server can use them for that request. They are never persisted, rendered
- * in clear text, or sent anywhere except this app's own server functions.
+ * Keys are entered by the user in the in-app Secrets panel and persisted in
+ * this browser's localStorage so they survive reloads. They are never rendered
+ * in clear text or sent anywhere except this app's own server functions.
+ * localStorage is not a secure vault: any XSS running in this origin can read it.
  */
 
 export const SecretsPayload = z
