@@ -6,7 +6,8 @@ import type {
   ProviderId,
 } from "./architect.types";
 import type { RepositoryAudit } from "./inspection.types";
-import { recallAudit } from "./project-memory.server";
+import { recallAudit, rememberAudit } from "./project-memory.server";
+import { inspectRepositoryReal, parseRepoUrl } from "./inspection.server";
 import { callLlm, hasProviderKey, redact } from "./llm.server";
 import { extractJsonLoose } from "./json-extract";
 
@@ -153,11 +154,25 @@ export interface ArchitectArgs {
 
 export async function generatePlanReal(args: ArchitectArgs): Promise<ArchitectResult> {
   const attempts: ArchitectAttempt[] = [];
-  const memory = recallAudit(args.projectId);
+  let memory = recallAudit(args.projectId);
+  // Cloudflare Workers may serve inspection and planning from different isolates.
+  // Rebuild the audit from the immutable project identity when local memory is absent.
+  if (!memory) {
+    const separator = args.projectId.lastIndexOf("#");
+    const repoUrl = separator > 0 ? args.projectId.slice(0, separator) : "";
+    const branch = separator > 0 ? args.projectId.slice(separator + 1) : "";
+    if (repoUrl && branch && parseRepoUrl(repoUrl)) {
+      const refreshed = await inspectRepositoryReal({ repoUrl, branch });
+      if (refreshed.ok && refreshed.audit) {
+        rememberAudit(refreshed.audit);
+        memory = recallAudit(args.projectId);
+      }
+    }
+  }
   if (!memory) {
     return {
       ok: false,
-      error: "No repository audit found. Run an inspection first — the Architect plans only from real repository facts.",
+      error: "No repository audit could be loaded. Re-run inspection and try again.",
       errorKind: "no_audit",
       attempts,
     };
