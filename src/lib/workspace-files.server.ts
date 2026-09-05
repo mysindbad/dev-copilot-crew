@@ -19,9 +19,9 @@ export type WorkspaceFileResult<T> =
 function parseRepoUrl(input: string): { owner: string; repo: string } | null {
   const cleaned = input.trim().replace(/\.git$/, "").replace(/\/+$/, "");
   const patterns = [
-    /^https?:\\/\\/(?:www\\.)?github\\.com\\/([^/\\s]+)\\/([^/\\s]+)$/i,
-    /^git@github\\.com:([^/\\s]+)\\/([^/\\s]+)$/i,
-    /^([A-Za-z0-9-_.]+)\\/([A-Za-z0-9-_.]+)$/,
+    /^https?:\/\/(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+)$/i,
+    /^git@github\.com:([^/\s]+)\/([^/\s]+)$/i,
+    /^([A-Za-z0-9-_.]+)\/([A-Za-z0-9-_.]+)$/,
   ];
   for (const pattern of patterns) {
     const match = cleaned.match(pattern);
