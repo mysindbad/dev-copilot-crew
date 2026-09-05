@@ -128,15 +128,10 @@ interface Ctx {
   sendMessage: (text: string) => Promise<void>;
   clearChat: () => void;
   pipeline: { running: boolean; phase: PipelinePhase; note: string };
-  runPipeline: (task: string) => Promise<void>;
+  runPipeline: (task: string, mode?: "audit" | "plan" | "implement") => Promise<void>;
 }
 
 const WorkspaceContext = createContext<Ctx | null>(null);
-
-const HANDOFF =
-  /(عطي|أعط|اعط|سلّم|سلم|بدا|ابدا|ابدأ|نفّذ|نفذ|طبّق|طبق|كمّل|كمل|go ahead|start|proceed|hand ?off)/i;
-
-const AFFIRM = /^(نعم|أيوا|ايوا|واخا|موافق|أوافق|اوك|ok|okay|yes|yalah|يالله)[\s!.،]*$/i;
 
 function normalizeCommand(text: string): string {
   return text.trim().replace(/\s+/g, " ").replace(/[.!،]+$/g, "").trim();
@@ -421,7 +416,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [gitFn, pendingGit, pipeline.running]);
 
   const runPipeline = useCallback(
-    async (task: string) => {
+    async (task: string, mode: "audit" | "plan" | "implement" = "implement") => {
       if (pipeline.running) return;
       setPendingGit(null);
       let activeRepoResult: RepoConnectionResult | null = null;
@@ -475,7 +470,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       say({
         role: "assistant",
         agent: "مدير المشروع",
-        content: `غادي نتحقق أولاً من المستودع، ثم نبني الخطة والمراجعة قبل أي كتابة.\nالمهمة: «${task}»`,
+        content:
+            mode === "audit"
+              ? `غادي نفحص المستودع ونرجع ليك بالنتائج بلا ما نكتب حتى تغيير.\nالمهمة: «${task}»`
+              : mode === "plan"
+                ? `غادي نفحص المستودع ونبني الخطة فقط، بلا كتابة تغييرات.\nالمهمة: «${task}»`
+                : `غادي نتحقق من المستودع، ثم نبني الخطة والمراجعة قبل أي كتابة.\nالمهمة: «${task}»`,
       });
 
       try {
@@ -514,6 +514,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           });
         }
 
+        if (mode === "audit") {
+          setPipeline({ running: false, phase: "done", note: "audit_complete" });
+          say({
+            role: "assistant",
+            agent: "مدير المشروع",
+            content: `سالا الفحص ✅. قريت ${currentAudit.counts.inspectedFiles} من ${currentAudit.counts.inspectableFiles} ملف نصي قابل للفحص عند النسخة ${currentAudit.commitSha.slice(0, 7)}. ما تبدل حتى ملف وما تصاوب حتى Pull Request. راجع تقرير الفحص، وإذا بغيتي نخرج خطة للإصلاح قول لي ذلك بوضوح.`,
+          });
+          return;
+        }
+
         // 2) Architect plan.
         setPipeline({ running: true, phase: "plan", note: "" });
         const sPlan = step("المهندس المعماري", "إنشاء الخطة التقنية", model);
@@ -549,6 +559,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           model: newPlan.model,
           content: `الخطة جاهزة (${newPlan.steps.length} خطوة):\n${newPlan.summary}`,
         });
+
+        if (mode === "plan") {
+          setPipeline({ running: false, phase: "done", note: "plan_complete" });
+          say({
+            role: "assistant",
+            agent: "مدير المشروع",
+            content: "الخطة سالات ✅. ما كتبنا حتى تغيير. إذا بغيتي نطبقها، قول بوضوح: طبّق الخطة.",
+          });
+          return;
+        }
 
         // 3) Coder.
         setPipeline({ running: true, phase: "code", note: "" });
@@ -727,12 +747,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       }
 
       const lastSuggested = [...messages].reverse().find((m) => m.suggestedTask)?.suggestedTask;
-      const wantsHandoff = HANDOFF.test(clean) || AFFIRM.test(clean);
-      if (wantsHandoff && lastSuggested && !pipeline.running) {
-        setChatBusy(false);
-        await runPipeline(lastSuggested);
-        return;
-      }
 
       const model = await ensureModel("chat", false);
       const cfg = providerRef.current;
@@ -819,8 +833,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           suggestedTask: turn.suggestedTask,
           nextStep: turn.nextStep,
         });
-        if (wantsHandoff && turn.suggestedTask && !pipeline.running) {
-          await runPipeline(turn.suggestedTask);
+        if (!pipeline.running && turn.suggestedTask && turn.intent !== "conversation") {
+          const task = turn.intent === "implement" && lastSuggested ? lastSuggested : turn.suggestedTask;
+          const mode = turn.intent === "inspect" ? "audit" : turn.intent === "plan" ? "plan" : "implement";
+          await runPipeline(task, mode);
         }
       } catch {
         a.fail("انقطاع فالاتصال");
