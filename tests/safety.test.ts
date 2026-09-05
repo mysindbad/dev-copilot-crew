@@ -97,17 +97,49 @@ describe("filePathProblem", () => {
 
 describe("parseRepoUrl", () => {
   test("accepts the documented forms", () => {
-    expect(parseRepoUrl("https://github.com/owner/repo")).toEqual({ owner: "owner", repo: "repo" });
-    expect(parseRepoUrl("https://www.github.com/owner/repo.git/")).toEqual({ owner: "owner", repo: "repo" });
-    expect(parseRepoUrl("git@github.com:owner/repo.git")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("owner/repo")).toEqual({ owner: "owner", repo: "repo" });
     expect(parseRepoUrl(" owner/repo ")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("https://github.com/owner/repo")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("git@github.com:owner/repo")).toEqual({ owner: "owner", repo: "repo" });
   });
 
-  test("rejects anything else — including credential-carrying URLs", () => {
-    expect(parseRepoUrl("https://user:pass@github.com/owner/repo")).toBeNull();
+  test("normalises trailing slashes and .git suffixes in every combination", () => {
+    expect(parseRepoUrl("owner/repo/")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("owner/repo.git")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("owner/repo.git/")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("https://www.github.com/owner/repo.git/")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("git@github.com:owner/repo.git")).toEqual({ owner: "owner", repo: "repo" });
+  });
+
+  test("discards query strings and fragments", () => {
+    expect(parseRepoUrl("https://github.com/owner/repo?tab=readme")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("https://github.com/owner/repo.git?t=1")).toEqual({ owner: "owner", repo: "repo" });
+    expect(parseRepoUrl("https://github.com/owner/repo#readme")).toEqual({ owner: "owner", repo: "repo" });
+    // A token inside the query is dropped entirely — never kept anywhere.
+    expect(parseRepoUrl("https://github.com/owner/repo?token=ghp_Secret123")).toEqual({
+      owner: "owner",
+      repo: "repo",
+    });
+  });
+
+  test("rejects non-GitHub hosts", () => {
     expect(parseRepoUrl("https://gitlab.com/owner/repo")).toBeNull();
-    expect(parseRepoUrl("owner")).toBeNull();
-    expect(parseRepoUrl("owner/repo/extra")).toBeNull();
+    expect(parseRepoUrl("https://bitbucket.org/owner/repo")).toBeNull();
+    expect(parseRepoUrl("git@gitlab.com:owner/repo.git")).toBeNull();
+  });
+
+  test("rejects incomplete inputs", () => {
     expect(parseRepoUrl("")).toBeNull();
+    expect(parseRepoUrl("   ")).toBeNull();
+    expect(parseRepoUrl("owner")).toBeNull();
+    expect(parseRepoUrl("owner/")).toBeNull();
+    expect(parseRepoUrl("https://github.com/owner")).toBeNull();
+    expect(parseRepoUrl("https://github.com/")).toBeNull();
+  });
+
+  test("rejects subpaths and credential-carrying URLs", () => {
+    expect(parseRepoUrl("https://github.com/owner/repo/tree/main")).toBeNull();
+    expect(parseRepoUrl("https://github.com/owner/repo/issues/12")).toBeNull();
+    expect(parseRepoUrl("https://user:pass@github.com/owner/repo")).toBeNull();
   });
 });
