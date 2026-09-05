@@ -98,6 +98,11 @@ export interface ChatEntry {
   nextStep?: string;
 }
 
+interface PendingGitApproval {
+  changeSet: ChangeSet;
+  repository: RepoConnectionResult;
+}
+
 interface Ctx {
   repoConfig: RepoConfig;
   setRepoConfig: (c: RepoConfig) => void;
@@ -132,6 +137,9 @@ const HANDOFF =
   /(عطي|أعط|اعط|سلّم|سلم|بدا|ابدا|ابدأ|نفّذ|نفذ|طبّق|طبق|كمّل|كمل|go ahead|start|proceed|hand ?off)/i;
 
 const AFFIRM = /^(نعم|أيوا|ايوا|واخا|موافق|أوافق|اوك|ok|okay|yes|yalah|يالله)[\s!.،]*$/i;
+
+const GIT_APPROVAL = /(?:أنشئ|انشئ|صاوب|افتح|أرسل|ارسل|دفع|نشر|اعتماد|approve|commit|pull request|pull-request|\bpr\b)/i;
+const GIT_CANCEL = /^(?:لا|ليس الآن|إلغاء|الغاء|cancel|no)[\s!.،]*$/i;
 
 function id() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -186,6 +194,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     note: string;
   }>({ running: false, phase: "idle", note: "" });
   const [hydrated, setHydrated] = useState(false);
+  const [pendingGit, setPendingGit] = useState<PendingGitApproval | null>(null);
 
   const providerRef = useRef(providerConfig);
   providerRef.current = providerConfig;
@@ -332,9 +341,81 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     };
   }
 
+  const commitPendingGit = useCallback(async () => {
+    if (!pendingGit || pipeline.running) return;
+    const { changeSet: cs, repository } = pendingGit;
+    if (!repository.ok || !repository.repository?.writeAccess) {
+      setPendingGit(null);
+      setPipeline({ running: false, phase: "done", note: "no_write" });
+      say({
+        role: "assistant",
+        agent: "مدير Git",
+        content:
+          "المراجعة وافقت، ولكن صلاحية الكتابة غير متاحة. لم أدفع أي تغيير إلى GitHub.",
+      });
+      return;
+    }
+
+    setPipeline({ running: true, phase: "git", note: "" });
+    const sGit = step("مدير Git", "إنشاء فرع جديد وإرسال التعديلات");
+    try {
+      const slug =
+        (cs.request || cs.taskId)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 40) || "change";
+      const gitRes = await gitFn({
+        data: {
+          changeSet: {
+            changeSetId: cs.changeSetId,
+            taskId: cs.taskId,
+            request: cs.request,
+            repository: cs.repository,
+            branch: cs.branch,
+            baseCommitSha: cs.baseCommitSha,
+            summary: cs.summary,
+            files: cs.files.map((f) => ({ path: f.path, action: f.action, after: f.after })),
+          },
+          branchName: `ai-dev-team/${slug}-${cs.changeSetId.slice(0, 8)}`,
+          commitMessage: cs.summary || cs.request,
+          openPullRequest: true,
+          dryRun: false,
+          secrets: getUserSecrets(),
+        },
+      });
+      setGitResult(gitRes);
+      if (!gitRes.ok || !gitRes.report) {
+        sGit.fail(arabize(gitRes.error ?? ""));
+        throw new Error(arabize(gitRes.error ?? "مدير Git ما قدرش يرسل التعديلات."));
+      }
+      sGit.ok(gitRes.report.branch);
+      say({
+        role: "assistant",
+        agent: "مدير Git",
+        content: `تسالت الخدمة ✅\nالفرع: ${gitRes.report.branch}\n${
+          gitRes.report.pullRequest
+            ? `Pull Request رقم ${gitRes.report.pullRequest.number}: ${gitRes.report.pullRequest.url}`
+            : "ما تصاوبش Pull Request."
+        }`,
+      });
+      setPendingGit(null);
+      setPipeline({ running: false, phase: "done", note: "" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "وقع مشكل غير متوقع.";
+      setPipeline({ running: false, phase: "failed", note: msg });
+      say({
+        role: "assistant",
+        agent: "مدير المشروع",
+        content: `ما تدفع والو بسبب خطأ: ${msg}\nصحّح الإعدادات أو اكتب «أنشئ Pull Request» للمحاولة من جديد.`,
+      });
+    }
+  }, [gitFn, pendingGit, pipeline.running]);
+
   const runPipeline = useCallback(
     async (task: string) => {
       if (pipeline.running) return;
+      setPendingGit(null);
       let activeRepoResult: RepoConnectionResult | null = null;
       if (repoConfig.repoUrl.trim()) {
         activeRepoResult = await testRepoFn({
@@ -558,7 +639,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 5) Git manager — only with write access.
+        // 5) Explicit human approval before any external GitHub write.
         const writeAccess = activeRepoResult?.ok
           ? Boolean(activeRepoResult.repository?.writeAccess)
           : false;
@@ -568,54 +649,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             role: "assistant",
             agent: "مدير Git",
             content:
-              "التعديلات موافَق عليها، ولكن التوكن ديالك للقراءة فقط، لهذا ما قدرتش نصاوب الفرع والـ Pull Request. زيد توكن فيه صلاحية repo من الإعدادات ونكمل.",
+              "التعديلات موافَق عليها، ولكن صلاحية الكتابة غير متاحة. لم أدفع أي تغيير إلى GitHub.",
           });
           return;
         }
 
-        setPipeline({ running: true, phase: "git", note: "" });
-        const sGit = step("مدير Git", "إنشاء فرع جديد وإرسال التعديلات");
-        const slug =
-          (cs.request || cs.taskId)
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 40) || "change";
-        const gitRes = await gitFn({
-          data: {
-            changeSet: {
-              changeSetId: cs.changeSetId,
-              taskId: cs.taskId,
-              request: cs.request,
-              repository: cs.repository,
-              branch: cs.branch,
-              baseCommitSha: cs.baseCommitSha,
-              summary: cs.summary,
-              files: cs.files.map((f) => ({ path: f.path, action: f.action, after: f.after })),
-            },
-            branchName: `ai-dev-team/${slug}-${cs.changeSetId.slice(0, 8)}`,
-            commitMessage: cs.summary || cs.request,
-            openPullRequest: true,
-            dryRun: false,
-            secrets: getUserSecrets(),
-          },
-        });
-        setGitResult(gitRes);
-        if (!gitRes.ok || !gitRes.report) {
-          sGit.fail(arabize(gitRes.error ?? ""));
-          throw new Error(arabize(gitRes.error ?? "مدير Git ما قدرش يرسل التعديلات."));
-        }
-        sGit.ok(gitRes.report.branch);
+        setPendingGit({ changeSet: cs, repository: activeRepoResult });
+        setPipeline({ running: false, phase: "done", note: "awaiting_git_approval" });
         say({
           role: "assistant",
-          agent: "مدير Git",
-          content: `تسالت الخدمة ✅\nالفرع: ${gitRes.report.branch}\n${
-            gitRes.report.pullRequest
-              ? `Pull Request رقم ${gitRes.report.pullRequest.number}: ${gitRes.report.pullRequest.url}`
-              : "ما تصاوبش Pull Request."
-          }`,
+          agent: "مدير المشروع",
+          content:
+            "المراجعة وافقت على التعديلات ✅. لم أدفع أي تغيير إلى GitHub بعد. إذا راجعت الـDiff وكنت موافقًا، اكتب «أنشئ Pull Request».",
         });
-        setPipeline({ running: false, phase: "done", note: "" });
+        return;
+
       } catch (err) {
         const msg = err instanceof Error ? err.message : "وقع مشكل غير متوقع.";
         setPipeline({ running: false, phase: "failed", note: msg });
@@ -630,7 +678,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       architectFn,
       coderFn,
       ensureModel,
-      gitFn,
       inspectFn,
       pipeline.running,
       repoConfig.branch,
@@ -647,6 +694,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const history = [...messages, { id: id(), role: "user" as const, content: clean }];
       setMessages(history);
       setChatBusy(true);
+
+      if (pendingGit && !pipeline.running) {
+        setChatBusy(false);
+        if (GIT_APPROVAL.test(clean)) {
+          await commitPendingGit();
+        } else if (GIT_CANCEL.test(clean)) {
+          setPendingGit(null);
+          setPipeline({ running: false, phase: "done", note: "cancelled" });
+          say({
+            role: "assistant",
+            agent: "مدير المشروع",
+            content: "ألغيت الدفع. التعديلات ما زالت غير مرسلة إلى GitHub.",
+          });
+        } else {
+          say({
+            role: "assistant",
+            agent: "مدير المشروع",
+            content: "هناك Pull Request جاهز بعد مراجعة ناجحة. اكتب «أنشئ Pull Request» للموافقة، أو «إلغاء» للتوقف.",
+          });
+        }
+        return;
+      }
 
       const lastSuggested = [...messages].reverse().find((m) => m.suggestedTask)?.suggestedTask;
       const wantsHandoff = HANDOFF.test(clean) || AFFIRM.test(clean);
@@ -760,6 +829,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       changeSet,
       chatBusy,
       chatFn,
+      commitPendingGit,
+      pendingGit,
       ensureModel,
       messages,
       pipeline.running,
