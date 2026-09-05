@@ -138,7 +138,15 @@ const HANDOFF =
 
 const AFFIRM = /^(نعم|أيوا|ايوا|واخا|موافق|أوافق|اوك|ok|okay|yes|yalah|يالله)[\s!.،]*$/i;
 
-const GIT_APPROVAL = /(?:أنشئ|انشئ|صاوب|افتح|أرسل|ارسل|دفع|نشر|اعتماد|approve|commit|pull request|pull-request|\bpr\b)/i;
+function normalizeCommand(text: string): string {
+  return text.trim().replace(/\s+/g, " ").replace(/[.!،]+$/g, "").trim();
+}
+
+function isGitApproval(text: string): boolean {
+  const command = normalizeCommand(text);
+  return /^(?:أنشئ|انشئ|صاوب|افتح|create|open)\s+(?:لي\s+)?(?:pull\s*request|pull-request|pr|طلب\s+دمج)$/i.test(command);
+}
+
 const GIT_CANCEL = /^(?:لا|ليس الآن|إلغاء|الغاء|cancel|no)[\s!.،]*$/i;
 
 function id() {
@@ -467,7 +475,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       say({
         role: "assistant",
         agent: "مدير المشروع",
-        content: `واخا. سلّمت المهمة للفريق:\n«${task}»\nغادي نتبع معاك كل خطوة هنا.`,
+        content: `غادي نتحقق أولاً من المستودع، ثم نبني الخطة والمراجعة قبل أي كتابة.\nالمهمة: «${task}»`,
       });
 
       try {
@@ -624,7 +632,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           model: revRes.reports[0]?.model ?? model,
           content:
             revRes.gate === "APPROVED"
-              ? `المراجعة دازت بنجاح ✅ (${revRes.totals.majors} ملاحظة مهمة، ${revRes.totals.minors} بسيطة).`
+              ? `المراجعة الآلية وافقت ✅ (${revRes.totals.majors} ملاحظة مهمة، ${revRes.totals.minors} بسيطة). ما تشغّل حتى build أو test على المستودع بعد.`
               : `المراجعة طلبات تعديلات ⚠️: ${revRes.totals.blockers} مشكل مانع و${revRes.totals.majors} ملاحظة خطيرة. ما غاديش نرسلو الكود لـ GitHub.`,
         });
 
@@ -660,7 +668,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           role: "assistant",
           agent: "مدير المشروع",
           content:
-            "المراجعة وافقت على التعديلات ✅. لم أدفع أي تغيير إلى GitHub بعد. إذا راجعت الـDiff وكنت موافقًا، اكتب «أنشئ Pull Request».",
+            "المراجعة الآلية وافقت على الـDiff ✅، لكن لم يتم تشغيل build أو test على المستودع بعد. لم أدفع أي تغيير إلى GitHub. راجع الـDiff، ثم اكتب حرفيًا «أنشئ Pull Request» إذا كنت موافقًا.",
         });
         return;
 
@@ -697,9 +705,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
       if (pendingGit && !pipeline.running) {
         setChatBusy(false);
-        if (GIT_APPROVAL.test(clean)) {
-          await commitPendingGit();
-        } else if (GIT_CANCEL.test(clean)) {
+        if (GIT_CANCEL.test(clean)) {
           setPendingGit(null);
           setPipeline({ running: false, phase: "done", note: "cancelled" });
           say({
@@ -707,11 +713,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             agent: "مدير المشروع",
             content: "ألغيت الدفع. التعديلات ما زالت غير مرسلة إلى GitHub.",
           });
+        } else if (isGitApproval(clean)) {
+          await commitPendingGit();
         } else {
           say({
             role: "assistant",
             agent: "مدير المشروع",
-            content: "هناك Pull Request جاهز بعد مراجعة ناجحة. اكتب «أنشئ Pull Request» للموافقة، أو «إلغاء» للتوقف.",
+            content: "هناك Pull Request جاهز بعد مراجعة ناجحة. اكتب حرفيًا «أنشئ Pull Request» للموافقة، أو «إلغاء» للتوقف.",
           });
         }
         return;
