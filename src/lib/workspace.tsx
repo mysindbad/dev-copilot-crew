@@ -54,7 +54,15 @@ type SecretFlags = {
   lovable: boolean;
 };
 
-import { pickModel, rankModels, taskKind, KEY_SOURCES, type TaskKind } from "@/lib/model-picker";
+import {
+  eligibleModels,
+  isFreeModel,
+  pickModel,
+  rankModels,
+  taskKind,
+  KEY_SOURCES,
+  type TaskKind,
+} from "@/lib/model-picker";
 import {
   PROVIDER_IDS,
   FALLBACK_PROVIDER_IDS,
@@ -308,7 +316,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           setProviderStatus(status);
         }
         if (!status.ok || status.models.length === 0) continue;
-        const pick = pickModel(provider, status.models, kind);
+        // وضع «المجاني فقط»: ما كنستعملو غير النماذج اللي المزوّد نفسو
+        // كيعطيها مجانية بلا شك (لاحقة ‎:free). النماذج ديال تكلفة غير
+        // معروفة (Gemini/Groq/Mistral/المدمج) ما كتنفعش فوضع المجاني.
+        const models = eligibleModels(provider, status.models, cfg.freeOnly);
+        if (models.length === 0) continue;
+        const pick = pickModel(provider, models, kind);
         if (!pick) continue;
         if (provider !== cfg.primaryProvider || pick.model !== cfg.primaryModel) {
           const next = { ...cfg, primaryProvider: provider, primaryModel: pick.model };
@@ -441,29 +454,38 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: "ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام دابا. عاود جرّب بعد شوية.",
+          content: providerRef.current.freeOnly
+            ? "ما قدرنش نبدا: وضع «المجاني فقط» مفعل وما لقيتش نموذج مجاني مُثبت عند حتى مزوّد. زيد مفتاح فيه نماذج ‎:free (بحال OpenRouter ولا Hugging Face)، ولا عطّل الوضع من الإعدادات."
+            : "ما قدرتش نبدا: ما لقيتش نموذج ذكاء اصطناعي خدّام دابا. عاود جرّب بعد شوية.",
         });
         return;
       }
       const cfg = providerRef.current;
       const backupModels = rankModels(
         cfg.primaryProvider,
-        providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+        eligibleModels(
+          cfg.primaryProvider,
+          providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+          cfg.freeOnly,
+        ),
         taskKind(task),
       )
         .filter((candidate) => candidate.model !== model)
         .slice(0, 2)
         .map((candidate) => candidate.model);
-      const fallbackProvider =
-        cfg.fallbackProvider !== "none" && cfg.fallbackModel
-          ? cfg.fallbackProvider
-          : backupModels[0]
-            ? cfg.primaryProvider
-            : "none";
-      const fallbackModel =
-        cfg.fallbackProvider !== "none" && cfg.fallbackModel
-          ? cfg.fallbackModel
-          : (backupModels[0] ?? "");
+      // في وضع «المجاني فقط» حتى الـ fallback ما كيمشيش لنموذج مدفوع/مجهول التكلفة.
+      const fallbackConfigured =
+        cfg.fallbackProvider !== "none" &&
+        Boolean(cfg.fallbackModel) &&
+        (!cfg.freeOnly || isFreeModel(cfg.fallbackProvider, cfg.fallbackModel));
+      const fallbackProvider = fallbackConfigured
+        ? cfg.fallbackProvider
+        : backupModels[0]
+          ? cfg.primaryProvider
+          : "none";
+      const fallbackModel = fallbackConfigured
+        ? (cfg.fallbackModel ?? "")
+        : (backupModels[0] ?? "");
 
       setPipeline({ running: true, phase: "inspect", note: "" });
       setGitResult(null);
@@ -574,7 +596,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setPipeline({ running: true, phase: "code", note: "" });
         const codeCandidates = rankModels(
           cfg.primaryProvider,
-          providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+          eligibleModels(
+            cfg.primaryProvider,
+            providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+            cfg.freeOnly,
+          ),
           "code",
         )
           .map((candidate) => candidate.model)
@@ -755,7 +781,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         say({
           role: "assistant",
           agent: "مدير المشروع",
-          content: "ما قدرتش نجاوب دابا: الذكاء الاصطناعي ماشي متاح. عاود جرّب بعد شوية، ولا زيد مفتاح ديالك ف«الإعدادات».",
+          content: cfg.freeOnly
+            ? "ما قدرش نجاوب دابا: وضع «المجاني فقط» مفعل وما كاينش نموذج مجاني مُثبت متاح. زيد مفتاح فيه نماذج ‎:free ولا عطّل الوضع ف«الإعدادات»."
+            : "ما قدرتش نجاوب دابا: الذكاء الاصطناعي ماشي متاح. عاود جرّب بعد شوية، ولا زيد مفتاح ديالك ف«الإعدادات».",
         });
         return;
       }
@@ -792,7 +820,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             primaryModel: model,
             backupModels: rankModels(
               cfg.primaryProvider,
-              providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+              eligibleModels(
+                cfg.primaryProvider,
+                providerStatusRef.current[cfg.primaryProvider]?.models ?? [],
+                cfg.freeOnly,
+              ),
               "chat",
             )
               .filter((p) => p.model !== model)
