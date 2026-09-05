@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const destination = "dist/server/wrangler.json";
@@ -29,9 +29,17 @@ if (!source) {
   process.exit(1);
 }
 
-if (source !== destination) {
+if (source === ".output/server/wrangler.json") {
+  // Wrangler resolves the generated entry point relative to its config file.
+  // Keep the complete Nitro server output beside the copied config.
+  mkdirSync("dist/server", { recursive: true });
+  cpSync(".output/server", "dist/server", { recursive: true, force: true });
+  if (existsSync(".output/public")) {
+    cpSync(".output/public", "dist/public", { recursive: true, force: true });
+  }
+} else if (source !== destination) {
   mkdirSync("dist/server", { recursive: true });
   copyFileSync(source, destination);
 }
 
-console.log("Prepared " + destination + " from " + source + ".");
+console.log("Prepared " + destination + " and its server entry point from " + source + ".");
