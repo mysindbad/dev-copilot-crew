@@ -14,7 +14,6 @@ import type {
 import { unifiedDiff } from "./diff";
 import { callLlm, hasProviderKey, redact } from "./llm.server";
 import { parseRepoUrl } from "./inspection.server";
-import { recallAudit } from "./project-memory.server";
 
 /**
  * Phase 4 — Coder Agent.
@@ -445,14 +444,14 @@ export async function implementPlanReal(args: CoderArgs): Promise<CoderResult> {
         continue;
       }
 
-      const audit = recallAudit(`${plan.repository}#${plan.branch}`);
       const changeSet: ChangeSet = {
         changeSetId: `${Date.now().toString(36)}-${plan.commitSha.slice(0, 7)}`,
         taskId: plan.taskId,
         request: plan.request,
         repository: plan.repository,
         branch: plan.branch,
-        baseCommitSha: audit?.COMMIT_SHA ?? plan.commitSha,
+        // The plan is bound to the inspected commit and survives a new Worker isolate.
+        baseCommitSha: plan.commitSha,
         createdAt: now(),
         provider: route.provider,
         model: route.model,
