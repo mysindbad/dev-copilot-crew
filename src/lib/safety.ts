@@ -91,11 +91,19 @@ export function filePathProblem(path: string): string | null {
 
 /**
  * Accept "https://github.com/owner/repo", "git@github.com:owner/repo" and
- * "owner/repo" (with optional .git suffix / trailing slashes); anything else
- * is rejected — including URLs that carry embedded credentials.
+ * "owner/repo" (with optional .git suffix / trailing slashes / query strings
+ * or fragments, which are discarded and never stored); anything else is
+ * rejected — including URLs that carry embedded credentials.
  */
 export function parseRepoUrl(input: string): { owner: string; repo: string } | null {
-  // Strip trailing slashes BEFORE the .git suffix: "owner/repo.git/" would
+  // Query strings and fragments are discarded up-front (never stored), then
+  // trailing slashes, then the .git suffix — so "owner/repo.git/?tab=1"
+  // parses to { owner: "owner", repo: "repo" }.
+  const cleaned = input
+    .trim()
+    .replace(/[?#].*$/, "")
+    .replace(/\/+$/, "")
+    .replace(/\.git$/, "");
   const patterns = [
     /^https?:\/\/(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+)$/i,
     /^git@github\.com:([^/\s]+)\/([^/\s]+)$/i,
