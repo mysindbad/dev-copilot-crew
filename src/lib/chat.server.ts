@@ -1,6 +1,6 @@
 import { callLlm, hasProviderKey, redact } from "./llm.server";
 import type { ProviderId } from "./architect.types";
-import type { ChatAttempt, ChatMessage, ChatResult, ChatTurn } from "./chat.types";
+import type { ChatAttempt, ChatMessage, ChatResult, ChatIntent, ChatTurn } from "./chat.types";
 
 export interface ChatInput {
   messages: ChatMessage[];
@@ -50,11 +50,19 @@ function systemPrompt(language: "ar" | "en"): string {
     "- Never ask the human about the project type, language, framework, stack, or file list; those come from the audit. If the audit is missing, tell them to run the repository inspection.",
     "- Never repeat a question you already asked. If the human repeats himself or says the answer is in the repo, stop asking and formulate the task.",
     "- A broad request like 'audit everything and fix the errors' is a VALID task.",
+    "- Infer intent from the whole conversation and repository state, not isolated keywords.",
+    "- intent=inspect means investigate, audit, test the user experience, find bugs, diagnose or report findings. It must never start coding.",
+    "- intent=plan means the user wants an architecture or implementation plan, but no code changes yet.",
+    "- intent=implement means the user clearly asks to build, modify, fix or apply changes. A handoff counts only when a concrete task was already discussed.",
+    "- intent=conversation means answer, explain, brainstorm or ask a question without starting repository work.",
+    "- Requests to act as the app owner and discover errors are inspect, not implement. Words like send, open, start or approve do not override the meaning.",
+    "- Never infer implementation merely because a task mentions errors, fixes, code or GitHub. If the user asked to discover or understand, keep it read-only.",
     "- Match the human's tone; be encouraging, never robotic, never a template.",
     langRule,
     "",
     "Reply ONLY with a JSON object of this exact shape (no markdown fence):",
-    '{"reply": string, "questions": string[], "suggestedTask": string, "nextStep": string}',
+    '{"intent": "conversation" | "inspect" | "plan" | "implement", "reply": string, "questions": string[], "suggestedTask": string, "nextStep": string}',
+    "intent = exactly one of conversation, inspect, plan, implement.",
     "reply = your full conversational answer (can be several paragraphs; use \\n for line breaks).",
     "questions = clarifying questions, usually empty.",
     "suggestedTask = one English sentence describing the concrete engineering task, ONLY when the human wants work done on the repository; otherwise empty string.",
@@ -98,10 +106,14 @@ function parseTurn(raw: string): Omit<ChatTurn, "provider" | "model" | "usedFall
     const obj = JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
     const reply = typeof obj["reply"] === "string" ? obj["reply"].trim() : "";
     if (!reply) return null;
+    const rawIntent = typeof obj["intent"] === "string" ? obj["intent"].trim() : "conversation";
+    const validIntents: ChatIntent[] = ["conversation", "inspect", "plan", "implement"];
+    const intent = validIntents.includes(rawIntent as ChatIntent) ? (rawIntent as ChatIntent) : "conversation";
     const questions = Array.isArray(obj["questions"])
       ? (obj["questions"] as unknown[]).filter((q): q is string => typeof q === "string").slice(0, 4)
       : [];
     return {
+      intent,
       reply,
       questions,
       suggestedTask: typeof obj["suggestedTask"] === "string" ? obj["suggestedTask"].trim() : "",
