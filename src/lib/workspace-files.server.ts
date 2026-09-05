@@ -17,7 +17,7 @@ export type WorkspaceFileResult<T> =
   | { ok: false; error: string };
 
 function parseRepoUrl(input: string): { owner: string; repo: string } | null {
-  const cleaned = input.trim().replace(/\\.git$/, "").replace(/\\/+$/, "");
+  const cleaned = input.trim().replace(/\.git$/, "").replace(/\/+$/, "");
   const patterns = [
     /^https?:\\/\\/(?:www\\.)?github\\.com\\/([^/\\s]+)\\/([^/\\s]+)$/i,
     /^git@github\\.com:([^/\\s]+)\\/([^/\\s]+)$/i,
@@ -107,7 +107,7 @@ export async function readWorkspaceFile(input: { repoUrl: string; branch: string
   if (!body.content || body.encoding !== "base64") return { ok: false, error: "This file is too large or is not a text file." };
   return { ok: true, data: {
     path: body.path, sha: body.sha, size: body.size, language: languageForPath(body.path),
-    content: Buffer.from(body.content.replace(/\\s/g, ""), "base64").toString("utf8"), encoding: "utf-8",
+    content: Buffer.from(body.content.replace(/\s/g, ""), "base64").toString("utf8"), encoding: "utf-8",
   } };
 }
 
